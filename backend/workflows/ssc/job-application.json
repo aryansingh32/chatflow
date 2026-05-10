@@ -1,0 +1,152 @@
+{
+  "id": "ssc-job-application",
+  "siteId": "ssc-gov",
+  "name": "SSC Job Application",
+  "category": "jobs",
+  "trigger": "apply for ssc job",
+  "triggerPhrases": [
+    "apply for ssc",
+    "fill ssc form",
+    "government job application ssc",
+    "ssc chsl application"
+  ],
+  "portalType": "jobs",
+  "entryUrl": "https://ssc.gov.in/",
+  "pageUrlPatterns": [
+    "ssc\\.gov\\.in"
+  ],
+  "requiredInputs": [
+    "registration_number",
+    "password",
+    "captcha"
+  ],
+  "requiredFiles": [
+    "resume",
+    "photo",
+    "signature"
+  ],
+  "instructions": "Workflow for applying to SSC jobs. Requires pre-registration and supporting documents (Photo, Signature, Resume).",
+  "starterActionPlan": [
+    {
+      "id": "nav",
+      "action": "navigate",
+      "value": "https://ssc.gov.in/",
+      "description": "Navigate to SSC portal"
+    },
+    {
+      "id": "login_toggle",
+      "action": "click",
+      "target": {
+        "value": "text=/Login/i",
+        "fallbackSelectors": [".login-link", "a[href*='login']"]
+      },
+      "description": "Open Login panel"
+    },
+    {
+      "id": "ask_reg",
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "contextMessage": "Please enter your SSC Registration Number."
+    },
+    {
+      "id": "fill_reg",
+      "action": "fill",
+      "target": {
+        "value": "input[name*='registration']",
+        "fallbackSelectors": ["input[placeholder*='Registration']"]
+      },
+      "value": "{{userInput:ask_reg}}",
+      "humanType": true
+    },
+    {
+      "id": "ask_pass",
+      "action": "pauseForUserInput",
+      "expectedInput": "password",
+      "contextMessage": "Please enter your SSC Password."
+    },
+    {
+      "id": "fill_pass",
+      "action": "fill",
+      "target": {
+        "value": "input[type='password']",
+        "fallbackSelectors": ["input[name*='password']"]
+      },
+      "value": "{{userInput:ask_pass}}",
+      "humanType": true
+    },
+    {
+      "id": "ask_captcha",
+      "action": "pauseForUserInput",
+      "expectedInput": "captcha",
+      "contextMessage": "Please enter the CAPTCHA code shown on the screen."
+    },
+    {
+      "id": "fill_captcha",
+      "action": "fill",
+      "target": {
+        "value": "input[name*='captcha']",
+        "fallbackSelectors": ["input[placeholder*='Captcha']"]
+      },
+      "value": "{{userInput:ask_captcha}}",
+      "humanType": true
+    },
+    {
+      "id": "login_submit",
+      "action": "click",
+      "target": {
+        "value": "button:has-text('Login')",
+        "fallbackSelectors": ["button[type='submit']"]
+      }
+    },
+    {
+      "id": "wait_dash",
+      "action": "waitForSelector",
+      "target": {
+        "value": "text=/Apply/i",
+        "fallbackSelectors": [".apply-btn"]
+      },
+      "timeout": 30000
+    },
+    {
+      "id": "click_apply",
+      "action": "click",
+      "target": {
+        "value": "text=/Apply/i"
+      }
+    },
+    {
+      "id": "upload_photo",
+      "action": "upload",
+      "target": {
+        "value": "input[id*='photo']",
+        "fallbackSelectors": ["input[name*='photo']", "text=/Upload Photo/i"]
+      },
+      "value": "{{userFile:photo}}",
+      "description": "Upload Photo"
+    },
+    {
+      "id": "upload_sig",
+      "action": "upload",
+      "target": {
+        "value": "input[id*='signature']",
+        "fallbackSelectors": ["input[name*='signature']", "text=/Upload Signature/i"]
+      },
+      "value": "{{userFile:signature}}",
+      "description": "Upload Signature"
+    },
+    {
+      "id": "manual_fill",
+      "action": "pauseForUserInput",
+      "expectedInput": "confirmation",
+      "contextMessage": "I have uploaded your photo and signature. Please fill in the remaining exam center preferences and other details, then let me know when you are ready to submit."
+    }
+  ],
+  "errorRecoveryPlan": [
+    {
+      "id": "refresh",
+      "action": "refresh"
+    }
+  ],
+  "isActive": true,
+  "version": 1
+}

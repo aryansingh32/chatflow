@@ -1,0 +1,321 @@
+{
+  "id": "aadhaar-download-v2",
+  "siteId": "uidai-myaadhaar",
+  "name": "Aadhaar Download",
+  "category": "aadhaar",
+  "trigger": "download aadhaar",
+  "triggerPhrases": [
+    "download aadhaar",
+    "aadhar download",
+    "aadhar nikale",
+    "get aadhaar pdf"
+  ],
+  "portalType": "aadhaar",
+  "entryUrl": "https://myaadhaar.uidai.gov.in/genricDownloadAadhaar/en",
+  "pageUrlPatterns": [
+    "myaadhaar\\.uidai\\.gov\\.in",
+    "uidai\\.gov\\.in"
+  ],
+  "requiredInputs": [
+    "aadhaar_number",
+    "captcha",
+    "otp"
+  ],
+  "requiredFiles": [],
+  "defaultProfileName": "default",
+  "instructions": "Structured workflow for Aadhaar download with manual CAPTCHA and OTP pauses.",
+  "starterActionPlan": [
+    {
+      "id": "s1",
+      "order": 1,
+      "action": "navigate",
+      "value": "https://myaadhaar.uidai.gov.in/genricDownloadAadhaar/en",
+      "timeout": 20000,
+      "retries": 1,
+      "description": "Open the Direct Aadhaar Download Page in English",
+      "humanDelay": true
+    },
+    {
+      "id": "s5",
+      "order": 5,
+      "action": "waitForSelector",
+      "target": {
+        "value": "input[name='uid']",
+        "type": "css",
+        "fallbackSelectors": [
+          "input[name*='uid']",
+          "input[name*='aadhaar']",
+          "#aadhaarNumber",
+          "input[aria-label*='Aadhaar']"
+        ]
+      },
+      "timeout": 20000,
+      "retries": 2,
+      "description": "Wait for the Aadhaar number field"
+    },
+    {
+      "id": "s6",
+      "order": 6,
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "timeout": 180000,
+      "retries": 0,
+      "description": "Please enter your Aadhaar number for this session.",
+      "contextMessage": "Please enter your Aadhaar number for this session. It will only be used ephemerally."
+    },
+    {
+      "id": "s7",
+      "order": 7,
+      "action": "fill",
+      "target": {
+        "value": "input[name='uid']",
+        "type": "css",
+        "fallbackSelectors": [
+          "input[name*='uid']",
+          "input[name*='aadhaar']",
+          "#aadhaarNumber",
+          "input[aria-label*='Aadhaar']"
+        ]
+      },
+      "value": "{{userInput:s6}}",
+      "timeout": 15000,
+      "retries": 2,
+      "description": "Enter Aadhaar number",
+      "humanType": true
+    },
+    {
+      "id": "s8",
+      "order": 8,
+      "action": "waitForSelector",
+      "target": {
+        "value": "img[alt*='CAPTCHA']",
+        "type": "css",
+        "fallbackSelectors": [
+          "canvas[aria-label*='captcha']",
+          "[alt*='captcha']",
+          "text=/captcha/i"
+        ]
+      },
+      "timeout": 15000,
+      "retries": 2,
+      "description": "Wait for the CAPTCHA challenge"
+    },
+    {
+      "id": "s9",
+      "order": 9,
+      "action": "pauseForUserInput",
+      "expectedInput": "captcha",
+      "target": {
+        "value": "img[alt*='CAPTCHA']",
+        "type": "css"
+      },
+      "timeout": 180000,
+      "retries": 0,
+      "description": "Please type the CAPTCHA shown on the live screen.",
+      "contextMessage": "Please type the CAPTCHA code exactly as shown on the live screen."
+    },
+    {
+      "id": "s10",
+      "order": 10,
+      "action": "fill",
+      "target": {
+        "value": "input[placeholder*='Captcha']",
+        "type": "css",
+        "fallbackSelectors": [
+          "input[name*='captcha']",
+          "input[id*='captcha']",
+          "#captcha"
+        ]
+      },
+      "value": "{{userInput:s9}}",
+      "timeout": 10000,
+      "retries": 2,
+      "description": "Enter CAPTCHA",
+      "humanType": true
+    },
+    {
+      "id": "s11",
+      "order": 11,
+      "action": "click",
+      "target": {
+        "value": "button:has-text('Send OTP')",
+        "type": "css",
+        "fallbackSelectors": [
+          "button:has-text('OTP')",
+          "button[type='submit']",
+          "text=/send otp/i"
+        ]
+      },
+      "timeout": 15000,
+      "retries": 2,
+      "description": "Request OTP delivery"
+    },
+    {
+      "id": "s11_retry",
+      "order": 11.5,
+      "action": "conditional",
+      "description": "Check if CAPTCHA was invalid and retry once",
+      "condition": {
+        "type": "exists",
+        "target": "text=/Invalid Captcha/i, text=/Captcha is Invalid/i"
+      },
+      "trueSteps": [
+        {
+          "id": "s11_r1",
+          "order": 1,
+          "action": "waitForTimeout",
+          "value": "1500",
+          "description": "Wait for new CAPTCHA to load"
+        },
+        {
+          "id": "s11_r2",
+          "order": 2,
+          "action": "pauseForUserInput",
+          "expectedInput": "captcha",
+          "target": {
+            "value": "img[alt*='CAPTCHA']",
+            "type": "css"
+          },
+          "timeout": 180000,
+          "description": "CAPTCHA was incorrect. Please type the NEW CAPTCHA shown.",
+          "contextMessage": "CAPTCHA was incorrect. Please type the NEW CAPTCHA shown."
+        },
+        {
+          "id": "s11_r3",
+          "order": 3,
+          "action": "fill",
+          "target": {
+            "value": "input[placeholder*='Captcha']",
+            "type": "css"
+          },
+          "value": "{{userInput:s11_r2}}",
+          "timeout": 10000,
+          "description": "Enter new CAPTCHA",
+          "humanType": true
+        },
+        {
+          "id": "s11_r4",
+          "order": 4,
+          "action": "click",
+          "target": {
+            "value": "button:has-text('Send OTP')",
+            "type": "css"
+          },
+          "timeout": 15000,
+          "description": "Request OTP delivery again"
+        }
+      ]
+    },
+    {
+      "id": "s12",
+      "order": 12,
+      "action": "waitForSelector",
+      "target": {
+        "value": "input[name='otp']",
+        "type": "css",
+        "fallbackSelectors": [
+          "input[name*='otp']",
+          "input[id*='otp']",
+          "#otp"
+        ]
+      },
+      "timeout": 20000,
+      "retries": 2,
+      "description": "Wait for OTP field"
+    },
+    {
+      "id": "s13",
+      "order": 13,
+      "action": "pauseForUserInput",
+      "expectedInput": "otp",
+      "timeout": 300000,
+      "retries": 0,
+      "description": "Please enter the OTP sent to your registered mobile number.",
+      "contextMessage": "Please enter the OTP sent to your registered mobile number."
+    },
+    {
+      "id": "s14",
+      "order": 14,
+      "action": "fill",
+      "target": {
+        "value": "input[name='otp']",
+        "type": "css",
+        "fallbackSelectors": [
+          "input[name*='otp']",
+          "input[id*='otp']",
+          "#otp"
+        ]
+      },
+      "value": "{{userInput:s13}}",
+      "timeout": 10000,
+      "retries": 2,
+      "description": "Enter OTP",
+      "humanType": true
+    },
+    {
+      "id": "s15",
+      "order": 15,
+      "action": "waitForSelector",
+      "target": {
+        "value": "button:has-text('Download')",
+        "type": "css",
+        "fallbackSelectors": [
+          "a:has-text('Download')",
+          "text=/download/i"
+        ]
+      },
+      "timeout": 20000,
+      "retries": 2,
+      "description": "Wait for the download action"
+    },
+    {
+      "id": "s16",
+      "order": 16,
+      "action": "download",
+      "target": {
+        "value": "button:has-text('Download')",
+        "type": "css",
+        "fallbackSelectors": [
+          "a:has-text('Download')",
+          "text=/download/i"
+        ]
+      },
+      "value": "user-file-download:receipt:aadhaar.pdf",
+      "timeout": 30000,
+      "retries": 2,
+      "description": "Download the Aadhaar PDF"
+    }
+  ],
+  "errorRecoveryPlan": [
+    {
+      "id": "r1",
+      "order": 1,
+      "action": "refresh",
+      "timeout": 15000,
+      "retries": 0,
+      "description": "Refresh the current page when a key step fails"
+    },
+    {
+      "id": "r2",
+      "order": 2,
+      "action": "waitForTimeout",
+      "value": "2000",
+      "timeout": 3000,
+      "retries": 0,
+      "description": "Allow the refreshed page to settle"
+    }
+  ],
+  "completionArtifact": "aadhaar_pdf",
+  "version": 2,
+  "isActive": true,
+  "metadata": {
+    "lastTested": "2026-05-08",
+    "successRate": 0.92,
+    "averageTime": 180000,
+    "author": "team",
+    "tags": [
+      "popular",
+      "govt"
+    ]
+  }
+}

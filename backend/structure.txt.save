@@ -1,0 +1,27 @@
+automation-platform/
+├── docker-compose.yml
+├── kubernetes/
+├── packages/
+│   ├── api-service/
+│   ├── crawler-service/
+│   ├── execution-service/
+│   ├── ai-service/
+│   ├── scheduler-service/
+│   └── shared/
+├── infrastructure/
+└── README.md
+
+Key components:
+
+API Service (Express/Fastify) - receives user requests, enqueues jobs
+Queue System (BullMQ + Redis)
+Crawler Service (Crawlee + Playwright)
+Execution Service (Playwright + Browser Pool)
+AI Service (Claude/GPT-4 integration)
+Scheduler Service (cron jobs for remapping)
+Session Manager
+Selector Engine (multi-fallback)
+Proxy Manager
+Storage (Postgres + Redis)
+Observability (Prometheus metrics)
+Docker + K8s configs

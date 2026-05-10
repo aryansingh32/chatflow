@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────
+# Prometheus Configuration
+# Scrapes API and Worker services
+# ─────────────────────────────────────────
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'api-service'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['api:3000']
+    scrape_interval: 10s
+
+  - job_name: 'worker-service'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['worker:9100']
+    scrape_interval: 10s
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s

@@ -1,0 +1,22 @@
+{
+  "name": "@automation/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./types": "./types/index.ts",
+    "./queue": "./queue/index.ts",
+    "./db": "./db/index.ts",
+    "./llm": "./llm/index.ts",
+    "./logger": "./logger/index.ts"
+  },
+  "dependencies": {
+    "pg": "^8.12.0",
+    "bullmq": "^5.12.0",
+    "redis": "^4.7.0",
+    "openai": "^6.36.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.6"
+  }
+}

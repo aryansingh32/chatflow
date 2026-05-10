@@ -1,0 +1,12 @@
+{
+  "name": "@automation/ai-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "planner.ts",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.26.0",
+    "@automation/shared": "*",
+    "openai": "^6.36.0"
+  }
+}

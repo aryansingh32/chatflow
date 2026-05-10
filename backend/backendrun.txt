@@ -1,0 +1,438 @@
+
+> automation-platform@1.0.0 dev:full
+> concurrently "npm run dev:api" "npm run dev:worker"
+
+[0] 
+[0] > automation-platform@1.0.0 dev:api
+[0] > node --import tsx packages/api-service/server.ts
+[0] 
+[1] 
+[1] > automation-platform@1.0.0 dev:worker
+[1] > node --import tsx packages/execution-service/worker.ts
+[1] 
+[0] {"ts":"2026-05-10T13:02:13.204Z","level":"info","scope":"shared-db","message":"migrations:complete"}
+[0] [WorkflowLoader] Starting workflow sync from /home/unknown/Desktop/chatflow/backend/workflows
+[0] [WorkflowLoader] Loaded pan-download-efiling from workflows/income-tax/pan-download.json
+[0] [WorkflowLoader] Loaded passport-application-status from workflows/passport/passport-application-status.json
+[0] [WorkflowLoader] Loaded ssc-job-application from workflows/ssc/job-application.json
+[0] [WorkflowLoader] Loaded aadhaar-download-v2 from workflows/uidai/aadhaar-download.json
+[0] [WorkflowLoader] Loaded aadhaar-update-name-dob from workflows/uidai/aadhaar-update.json
+[0] [WorkflowLoader] Sync complete. loaded=5 skipped=0
+[0] [BrowserPool] Initializing with 2 browsers
+[0] [BrowserPool] Spawned browser dcg2pd3m
+[0] [BrowserPool] Spawned browser zka67ear
+[0] [BrowserPool] ✅ Ready — 2 browsers available
+[0] {"ts":"2026-05-10T13:02:14.070Z","level":"info","scope":"api-service","message":"service:ready","host":"0.0.0.0","port":3000,"allowedOrigins":["http://localhost:3000","http://localhost:4173","http://localhost:5173","http://localhost:8080","http://127.0.0.1:3000","http://127.0.0.1:4173","http://127.0.0.1:5173","http://127.0.0.1:8080"]}
+[0] {"ts":"2026-05-10T13:02:14.099Z","level":"info","scope":"shared-db","message":"redis:connected"}
+[0] [2026-05-10 18:32:14.068 +0530] [32mINFO[39m (53914): [36mServer listening at http://0.0.0.0:3000[39m
+[1] {"ts":"2026-05-10T13:02:15.191Z","level":"info","scope":"shared-queue","message":"worker:registered","queueName":"crawl","concurrency":5}
+[1] {"ts":"2026-05-10T13:02:15.195Z","level":"info","scope":"shared-queue","message":"worker:registered","queueName":"execute","concurrency":10}
+[1] {"ts":"2026-05-10T13:02:15.196Z","level":"info","scope":"shared-queue","message":"worker:registered","queueName":"remap","concurrency":2}
+[1] {"ts":"2026-05-10T13:02:15.197Z","level":"info","scope":"shared-queue","message":"worker:registered","queueName":"ai-plan","concurrency":5}
+[1] {"ts":"2026-05-10T13:02:15.347Z","level":"info","scope":"shared-db","message":"migrations:complete"}
+[1] [WorkflowLoader] Starting workflow sync from /home/unknown/Desktop/chatflow/backend/workflows
+[1] [WorkflowLoader] Loaded pan-download-efiling from workflows/income-tax/pan-download.json
+[1] [WorkflowLoader] Loaded passport-application-status from workflows/passport/passport-application-status.json
+[1] [WorkflowLoader] Loaded ssc-job-application from workflows/ssc/job-application.json
+[1] [WorkflowLoader] Loaded aadhaar-download-v2 from workflows/uidai/aadhaar-download.json
+[1] [WorkflowLoader] Loaded aadhaar-update-name-dob from workflows/uidai/aadhaar-update.json
+[1] [WorkflowLoader] Sync complete. loaded=5 skipped=0
+[1] [BrowserPool] Initializing with 2 browsers
+[1] [BrowserPool] Spawned browser o4xe7x3x
+[1] [BrowserPool] Spawned browser p3pthfl6
+[1] [BrowserPool] ✅ Ready — 2 browsers available
+[1] 
+[1] ⚙️  Worker Service ready
+[1]   • Crawl concurrency:   3
+[1]   • Execute concurrency: 10
+[1]   • Remap concurrency:   2
+[1]   • AI Plan concurrency: 5
+[1] 
+[0] {"ts":"2026-05-10T13:02:36.139Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-1","method":"OPTIONS","url":"/memory/profiles?userId=default-user","statusCode":204,"responseTimeMs":8.96950799971819}
+[0] {"ts":"2026-05-10T13:02:36.144Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-2","method":"GET","url":"/memory/profiles?userId=default-user","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:02:36.152Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-3","method":"OPTIONS","url":"/workflows","statusCode":204,"responseTimeMs":0.7857429999858141}
+[0] {"ts":"2026-05-10T13:02:36.157Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-4","method":"GET","url":"/workflows","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:02:36.161Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-2","method":"GET","url":"/memory/profiles?userId=default-user","statusCode":200,"responseTimeMs":17.497888000681996}
+[0] {"ts":"2026-05-10T13:02:36.196Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-5","method":"OPTIONS","url":"/health","statusCode":204,"responseTimeMs":0.6331409998238087}
+[0] {"ts":"2026-05-10T13:02:36.197Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-6","method":"GET","url":"/memory/profiles?userId=default-user","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:02:36.200Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-7","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:02:36.207Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-6","method":"GET","url":"/memory/profiles?userId=default-user","statusCode":200,"responseTimeMs":9.91193599998951}
+[0] {"ts":"2026-05-10T13:02:36.227Z","level":"info","scope":"api-service","message":"socket:connected","socketId":"asb7au9H43z_55pmAAAB"}
+[0] {"ts":"2026-05-10T13:02:36.254Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-7","method":"GET","url":"/health","statusCode":200,"responseTimeMs":53.466121001169086}
+[0] {"ts":"2026-05-10T13:02:36.264Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-4","method":"GET","url":"/workflows","statusCode":200,"responseTimeMs":106.93941800110042}
+[0] {"ts":"2026-05-10T13:02:36.285Z","level":"info","scope":"api-service","message":"socket:join","socketId":"asb7au9H43z_55pmAAAB","userId":"default-user","sessionId":"67ov8lu8o3cq-w7lazcr1o3cq"}
+[0] {"ts":"2026-05-10T13:02:36.289Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-8","method":"GET","url":"/workflows","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:02:36.301Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-8","method":"GET","url":"/workflows","statusCode":200,"responseTimeMs":11.590796999633312}
+[0] {"ts":"2026-05-10T13:02:36.369Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-9","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:02:36.375Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-9","method":"GET","url":"/health","statusCode":200,"responseTimeMs":5.99974700063467}
+[0] [2026-05-10 18:32:36.128 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-1"
+[0]     req: {
+[0]       "method": "OPTIONS",
+[0]       "url": "/memory/profiles?userId=default-user",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42670
+[0]     }
+[0] [2026-05-10 18:32:36.143 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-1"
+[0]     res: {
+[0]       "statusCode": 204
+[0]     }
+[0]     responseTime: 8.96950799971819
+[0] [2026-05-10 18:32:36.143 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-2"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/memory/profiles?userId=default-user",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42670
+[0]     }
+[0] [2026-05-10 18:32:36.151 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-3"
+[0]     req: {
+[0]       "method": "OPTIONS",
+[0]       "url": "/workflows",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42674
+[0]     }
+[0] [2026-05-10 18:32:36.156 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-3"
+[0]     res: {
+[0]       "statusCode": 204
+[0]     }
+[0]     responseTime: 0.7857429999858141
+[0] [2026-05-10 18:32:36.157 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-4"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/workflows",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42674
+[0]     }
+[0] [2026-05-10 18:32:36.162 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-2"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 17.497888000681996
+[0] [2026-05-10 18:32:36.195 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-5"
+[0]     req: {
+[0]       "method": "OPTIONS",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:32:36.196 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-5"
+[0]     res: {
+[0]       "statusCode": 204
+[0]     }
+[0]     responseTime: 0.6331409998238087
+[0] [2026-05-10 18:32:36.197 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-6"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/memory/profiles?userId=default-user",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42698
+[0]     }
+[0] [2026-05-10 18:32:36.200 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-7"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:32:36.207 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-6"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 9.91193599998951
+[0] [2026-05-10 18:32:36.254 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-7"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 53.466121001169086
+[0] [2026-05-10 18:32:36.266 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-4"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 106.93941800110042
+[0] [2026-05-10 18:32:36.289 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-8"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/workflows",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:32:36.302 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-8"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 11.590796999633312
+[0] [2026-05-10 18:32:36.369 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-9"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:32:36.375 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-9"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 5.99974700063467
+[0] {"ts":"2026-05-10T13:02:41.147Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-a","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:02:41.153Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-a","method":"GET","url":"/health","statusCode":200,"responseTimeMs":6.970755001530051}
+[0] [2026-05-10 18:32:41.146 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-a"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:32:41.154 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-a"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 6.970755001530051
+[0] {"ts":"2026-05-10T13:02:58.801Z","level":"info","scope":"api-service","message":"socket:chat-send","socketId":"asb7au9H43z_55pmAAAB","userId":"default-user","sessionId":"67ov8lu8o3cq-w7lazcr1o3cq","messagePreview":"hi"}
+[0] {"ts":"2026-05-10T13:02:59.069Z","level":"info","scope":"shared-queue","message":"job:enqueued","queue":"execute","jobId":"5388d5cd-e2d9-4e0a-b84c-a619576a950d","priority":"normal"}
+[0] {"ts":"2026-05-10T13:02:59.177Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-b","method":"OPTIONS","url":"/health","statusCode":204,"responseTimeMs":12.050760999321938}
+[0] {"ts":"2026-05-10T13:02:59.201Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-c","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[1] {"ts":"2026-05-10T13:02:59.206Z","level":"info","scope":"shared-queue","message":"worker:processing","queueName":"execute","jobId":"5388d5cd-e2d9-4e0a-b84c-a619576a950d"}
+[0] {"ts":"2026-05-10T13:02:59.239Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-c","method":"GET","url":"/health","statusCode":200,"responseTimeMs":37.66029500029981}
+[1] {"ts":"2026-05-10T13:02:59.389Z","level":"info","scope":"shared-db","message":"redis:connected"}
+[0] [2026-05-10 18:32:59.163 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-b"
+[0]     req: {
+[0]       "method": "OPTIONS",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] {"ts":"2026-05-10T13:02:59.736Z","level":"info","scope":"api-service","message":"socket:join","socketId":"asb7au9H43z_55pmAAAB","userId":"default-user","sessionId":"67ov8lu8o3cq-w7lazcr1o3cq","activeJobId":"5388d5cd-e2d9-4e0a-b84c-a619576a950d"}
+[0] [2026-05-10 18:32:59.186 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-b"
+[0]     res: {
+[0]       "statusCode": 204
+[0]     }
+[0]     responseTime: 12.050760999321938
+[0] [2026-05-10 18:32:59.200 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-c"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:32:59.245 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-c"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 37.66029500029981
+[0] {"ts":"2026-05-10T13:02:59.971Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-d","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:03:00.008Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-d","method":"GET","url":"/health","statusCode":200,"responseTimeMs":37.26165399886668}
+[1] {"ts":"2026-05-10T13:03:00.039Z","level":"error","scope":"shared-queue","message":"worker:failed","queueName":"execute","jobId":"5388d5cd-e2d9-4e0a-b84c-a619576a950d","errorName":"error","errorMessage":"invalid input syntax for type uuid: \"example.com\"","stack":"error: invalid input syntax for type uuid: \"example.com\"\n    at /home/unknown/Desktop/chatflow/backend/node_modules/pg-pool/index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async buildPlanningSnapshot (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:54:27)\n    at async createWorker.concurrency (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:178:38)\n    at async <anonymous> (/home/unknown/Desktop/chatflow/backend/node_modules/bullmq/src/classes/worker.ts:1020:26)"}
+[0] [2026-05-10 18:32:59.970 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-d"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:33:00.036 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-d"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 37.26165399886668
+[0] {"ts":"2026-05-10T13:03:00.388Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-e","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:03:00.403Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-e","method":"GET","url":"/health","statusCode":200,"responseTimeMs":15.659545000642538}
+[0] [2026-05-10 18:33:00.387 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-e"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:33:00.405 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-e"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 15.659545000642538
+[1] {"ts":"2026-05-10T13:03:01.960Z","level":"info","scope":"shared-queue","message":"worker:processing","queueName":"execute","jobId":"5388d5cd-e2d9-4e0a-b84c-a619576a950d"}
+[1] {"ts":"2026-05-10T13:03:02.002Z","level":"error","scope":"shared-queue","message":"worker:failed","queueName":"execute","jobId":"5388d5cd-e2d9-4e0a-b84c-a619576a950d","errorName":"error","errorMessage":"invalid input syntax for type uuid: \"example.com\"","stack":"error: invalid input syntax for type uuid: \"example.com\"\n    at /home/unknown/Desktop/chatflow/backend/node_modules/pg-pool/index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async buildPlanningSnapshot (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:54:27)\n    at async createWorker.concurrency (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:178:38)\n    at async <anonymous> (/home/unknown/Desktop/chatflow/backend/node_modules/bullmq/src/classes/worker.ts:1020:26)"}
+[1] {"ts":"2026-05-10T13:03:06.083Z","level":"info","scope":"shared-queue","message":"worker:processing","queueName":"execute","jobId":"5388d5cd-e2d9-4e0a-b84c-a619576a950d"}
+[1] {"ts":"2026-05-10T13:03:06.112Z","level":"error","scope":"shared-queue","message":"worker:failed","queueName":"execute","jobId":"5388d5cd-e2d9-4e0a-b84c-a619576a950d","errorName":"error","errorMessage":"invalid input syntax for type uuid: \"example.com\"","stack":"error: invalid input syntax for type uuid: \"example.com\"\n    at /home/unknown/Desktop/chatflow/backend/node_modules/pg-pool/index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async buildPlanningSnapshot (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:54:27)\n    at async createWorker.concurrency (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:178:38)\n    at async <anonymous> (/home/unknown/Desktop/chatflow/backend/node_modules/bullmq/src/classes/worker.ts:1020:26)"}
+[0] {"ts":"2026-05-10T13:03:29.177Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-f","method":"OPTIONS","url":"/health","statusCode":204,"responseTimeMs":2.503151001408696}
+[0] {"ts":"2026-05-10T13:03:29.194Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-g","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:03:29.198Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-g","method":"GET","url":"/health","statusCode":200,"responseTimeMs":3.4321289993822575}
+[0] [2026-05-10 18:33:29.174 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-f"
+[0]     req: {
+[0]       "method": "OPTIONS",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:33:29.178 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-f"
+[0]     res: {
+[0]       "statusCode": 204
+[0]     }
+[0]     responseTime: 2.503151001408696
+[0] [2026-05-10 18:33:29.194 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-g"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:33:29.198 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-g"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 3.4321289993822575
+[0] {"ts":"2026-05-10T13:03:52.008Z","level":"info","scope":"api-service","message":"socket:chat-send","socketId":"asb7au9H43z_55pmAAAB","userId":"default-user","sessionId":"67ov8lu8o3cq-w7lazcr1o3cq","messagePreview":"what can you do"}
+[0] {"ts":"2026-05-10T13:03:52.017Z","level":"info","scope":"shared-queue","message":"job:enqueued","queue":"execute","jobId":"ec555fc3-3010-4e0b-8908-77c4e7e7e140","priority":"normal"}
+[1] {"ts":"2026-05-10T13:03:52.019Z","level":"info","scope":"shared-queue","message":"worker:processing","queueName":"execute","jobId":"ec555fc3-3010-4e0b-8908-77c4e7e7e140"}
+[1] {"ts":"2026-05-10T13:03:52.050Z","level":"error","scope":"shared-queue","message":"worker:failed","queueName":"execute","jobId":"ec555fc3-3010-4e0b-8908-77c4e7e7e140","errorName":"error","errorMessage":"invalid input syntax for type uuid: \"example.com\"","stack":"error: invalid input syntax for type uuid: \"example.com\"\n    at /home/unknown/Desktop/chatflow/backend/node_modules/pg-pool/index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async buildPlanningSnapshot (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:54:27)\n    at async createWorker.concurrency (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:178:38)\n    at async <anonymous> (/home/unknown/Desktop/chatflow/backend/node_modules/bullmq/src/classes/worker.ts:1020:26)"}
+[0] {"ts":"2026-05-10T13:03:52.066Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-h","method":"OPTIONS","url":"/health","statusCode":204,"responseTimeMs":0.6488019991666079}
+[0] {"ts":"2026-05-10T13:03:52.070Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-i","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:03:52.073Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-i","method":"GET","url":"/health","statusCode":200,"responseTimeMs":3.600881999358535}
+[0] {"ts":"2026-05-10T13:03:52.130Z","level":"info","scope":"api-service","message":"socket:join","socketId":"asb7au9H43z_55pmAAAB","userId":"default-user","sessionId":"67ov8lu8o3cq-w7lazcr1o3cq","activeJobId":"ec555fc3-3010-4e0b-8908-77c4e7e7e140"}
+[0] {"ts":"2026-05-10T13:03:52.151Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-j","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:03:52.162Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-j","method":"GET","url":"/health","statusCode":200,"responseTimeMs":11.578154999762774}
+[0] {"ts":"2026-05-10T13:03:52.209Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-k","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:03:52.216Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-k","method":"GET","url":"/health","statusCode":200,"responseTimeMs":7.417625999078155}
+[0] [2026-05-10 18:33:52.065 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-h"
+[0]     req: {
+[0]       "method": "OPTIONS",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:33:52.066 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-h"
+[0]     res: {
+[0]       "statusCode": 204
+[0]     }
+[0]     responseTime: 0.6488019991666079
+[0] [2026-05-10 18:33:52.069 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-i"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:33:52.075 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-i"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 3.600881999358535
+[0] [2026-05-10 18:33:52.151 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-j"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:33:52.163 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-j"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 11.578154999762774
+[0] [2026-05-10 18:33:52.209 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-k"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:33:52.218 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-k"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 7.417625999078155
+[1] {"ts":"2026-05-10T13:03:54.064Z","level":"info","scope":"shared-queue","message":"worker:processing","queueName":"execute","jobId":"ec555fc3-3010-4e0b-8908-77c4e7e7e140"}
+[1] {"ts":"2026-05-10T13:03:54.091Z","level":"error","scope":"shared-queue","message":"worker:failed","queueName":"execute","jobId":"ec555fc3-3010-4e0b-8908-77c4e7e7e140","errorName":"error","errorMessage":"invalid input syntax for type uuid: \"example.com\"","stack":"error: invalid input syntax for type uuid: \"example.com\"\n    at /home/unknown/Desktop/chatflow/backend/node_modules/pg-pool/index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async buildPlanningSnapshot (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:54:27)\n    at async createWorker.concurrency (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:178:38)\n    at async <anonymous> (/home/unknown/Desktop/chatflow/backend/node_modules/bullmq/src/classes/worker.ts:1020:26)"}
+[1] {"ts":"2026-05-10T13:03:58.187Z","level":"info","scope":"shared-queue","message":"worker:processing","queueName":"execute","jobId":"ec555fc3-3010-4e0b-8908-77c4e7e7e140"}
+[1] {"ts":"2026-05-10T13:03:58.212Z","level":"error","scope":"shared-queue","message":"worker:failed","queueName":"execute","jobId":"ec555fc3-3010-4e0b-8908-77c4e7e7e140","errorName":"error","errorMessage":"invalid input syntax for type uuid: \"example.com\"","stack":"error: invalid input syntax for type uuid: \"example.com\"\n    at /home/unknown/Desktop/chatflow/backend/node_modules/pg-pool/index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async buildPlanningSnapshot (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:54:27)\n    at async createWorker.concurrency (/home/unknown/Desktop/chatflow/backend/packages/execution-service/worker.ts:178:38)\n    at async <anonymous> (/home/unknown/Desktop/chatflow/backend/node_modules/bullmq/src/classes/worker.ts:1020:26)"}
+[0] {"ts":"2026-05-10T13:04:22.105Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-l","method":"OPTIONS","url":"/health","statusCode":204,"responseTimeMs":0.6093689985573292}
+[0] {"ts":"2026-05-10T13:04:22.108Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-m","method":"GET","url":"/health","origin":"http://localhost:8080"}
+[0] {"ts":"2026-05-10T13:04:22.111Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-m","method":"GET","url":"/health","statusCode":200,"responseTimeMs":2.3865629993379116}
+[0] [2026-05-10 18:34:22.104 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-l"
+[0]     req: {
+[0]       "method": "OPTIONS",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:34:22.105 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-l"
+[0]     res: {
+[0]       "statusCode": 204
+[0]     }
+[0]     responseTime: 0.6093689985573292
+[0] [2026-05-10 18:34:22.108 +0530] [32mINFO[39m (53914): [36mincoming request[39m
+[0]     reqId: "req-m"
+[0]     req: {
+[0]       "method": "GET",
+[0]       "url": "/health",
+[0]       "hostname": "localhost:3000",
+[0]       "remoteAddress": "127.0.0.1",
+[0]       "remotePort": 42692
+[0]     }
+[0] [2026-05-10 18:34:22.111 +0530] [32mINFO[39m (53914): [36mrequest completed[39m
+[0]     reqId: "req-m"
+[0]     res: {
+[0]       "statusCode": 200
+[0]     }
+[0]     responseTime: 2.3865629993379116

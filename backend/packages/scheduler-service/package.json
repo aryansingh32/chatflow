@@ -1,0 +1,16 @@
+{
+  "name": "@automation/scheduler-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "scheduler.ts",
+  "scripts": {
+    "start": "node dist/scheduler.js",
+    "dev": "tsx scheduler.ts"
+  },
+  "dependencies": {
+    "cron": "^3.1.7",
+    "playwright": "^1.45.0",
+    "@automation/shared": "*"
+  }
+}

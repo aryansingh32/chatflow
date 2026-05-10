@@ -1,0 +1,192 @@
+{
+  "id": "passport-application-status",
+  "siteId": "passport-gov",
+  "name": "Passport Application Status Check",
+  "category": "passport",
+  "trigger": "check passport status",
+  "triggerPhrases": [
+    "check passport status",
+    "passport application status",
+    "track passport",
+    "passport tracking"
+  ],
+  "portalType": "government",
+  "entryUrl": "https://www.passportindia.gov.in/",
+  "pageUrlPatterns": [
+    "passportindia\\.gov\\.in"
+  ],
+  "requiredInputs": [
+    "application_number",
+    "dob"
+  ],
+  "requiredFiles": [],
+  "instructions": "Check passport application status on the official Passport Seva portal using application/file number and date of birth.",
+  "starterActionPlan": [
+    {
+      "id": "nav",
+      "order": 1,
+      "action": "navigate",
+      "value": "https://www.passportindia.gov.in/AppOnlineProject/statusTracker/trackStatusIn498",
+      "description": "Navigate to Passport status tracker",
+      "timeout": 25000,
+      "retries": 2
+    },
+    {
+      "id": "wait_form",
+      "order": 2,
+      "action": "waitForSelector",
+      "target": {
+        "value": "input[name*='applicationNo']",
+        "type": "css",
+        "fallbackSelectors": [
+          "input[id*='file_no']",
+          "input[placeholder*='Application']",
+          "input[placeholder*='File']"
+        ]
+      },
+      "timeout": 20000,
+      "retries": 2,
+      "description": "Wait for the status form to load"
+    },
+    {
+      "id": "ask_app_no",
+      "order": 3,
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "timeout": 180000,
+      "retries": 0,
+      "description": "Please enter your Passport Application / File Number.",
+      "contextMessage": "Please provide your Passport Application Number or File Number to check the status."
+    },
+    {
+      "id": "fill_app_no",
+      "order": 4,
+      "action": "fill",
+      "target": {
+        "value": "input[name*='applicationNo']",
+        "type": "css",
+        "fallbackSelectors": [
+          "input[id*='file_no']",
+          "input[placeholder*='Application']"
+        ]
+      },
+      "value": "{{userInput:ask_app_no}}",
+      "timeout": 10000,
+      "retries": 2,
+      "description": "Enter Application / File Number",
+      "humanType": true
+    },
+    {
+      "id": "ask_dob",
+      "order": 5,
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "timeout": 180000,
+      "retries": 0,
+      "description": "Please enter your Date of Birth (DD/MM/YYYY).",
+      "contextMessage": "Please enter your Date of Birth in DD/MM/YYYY format."
+    },
+    {
+      "id": "fill_dob",
+      "order": 6,
+      "action": "fill",
+      "target": {
+        "value": "input[name*='dob']",
+        "type": "css",
+        "fallbackSelectors": [
+          "input[id*='dateOfBirth']",
+          "input[placeholder*='Date of Birth']",
+          "input[type='date']"
+        ]
+      },
+      "value": "{{userInput:ask_dob}}",
+      "timeout": 10000,
+      "retries": 2,
+      "description": "Enter Date of Birth",
+      "humanType": true
+    },
+    {
+      "id": "submit_form",
+      "order": 7,
+      "action": "click",
+      "target": {
+        "value": "button:has-text('Track Status')",
+        "type": "css",
+        "fallbackSelectors": [
+          "input[type='submit']",
+          "button[type='submit']",
+          "text=/Track/i"
+        ]
+      },
+      "timeout": 15000,
+      "retries": 2,
+      "description": "Submit the tracking form"
+    },
+    {
+      "id": "wait_result",
+      "order": 8,
+      "action": "waitForSelector",
+      "target": {
+        "value": "table",
+        "type": "css",
+        "fallbackSelectors": [
+          ".status-result",
+          "text=/Status/i"
+        ]
+      },
+      "timeout": 20000,
+      "retries": 2,
+      "description": "Wait for the status result to appear"
+    },
+    {
+      "id": "extract_status",
+      "order": 9,
+      "action": "extractData",
+      "target": {
+        "value": "table",
+        "type": "css",
+        "fallbackSelectors": [
+          ".status-result",
+          "#statusTable"
+        ]
+      },
+      "description": "Extract passport application status",
+      "metadata": {
+        "key": "passport_status",
+        "mode": "text"
+      }
+    },
+    {
+      "id": "screenshot_result",
+      "order": 10,
+      "action": "screenshot",
+      "value": "passport-status-result.png",
+      "description": "Take a screenshot of the status result for records"
+    }
+  ],
+  "errorRecoveryPlan": [
+    {
+      "id": "r1",
+      "order": 1,
+      "action": "refresh",
+      "timeout": 15000,
+      "retries": 0,
+      "description": "Refresh the page on failure"
+    },
+    {
+      "id": "r2",
+      "order": 2,
+      "action": "waitForTimeout",
+      "value": "2000",
+      "timeout": 3000,
+      "retries": 0,
+      "description": "Let the page settle after refresh"
+    }
+  ],
+  "version": 1,
+  "isActive": true,
+  "metadata": {
+    "author": "team",
+    "tags": ["popular", "govt", "passport"]
+  }
+}

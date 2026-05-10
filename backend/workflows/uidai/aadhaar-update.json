@@ -1,0 +1,178 @@
+{
+  "id": "aadhaar-update-name-dob",
+  "siteId": "uidai-myaadhaar",
+  "name": "Aadhaar Update (Name/DOB)",
+  "category": "aadhaar",
+  "trigger": "update aadhaar name or dob",
+  "triggerPhrases": [
+    "update aadhar name",
+    "change aadhar date of birth",
+    "correct aadhaar details",
+    "aadhar correction"
+  ],
+  "portalType": "aadhaar",
+  "entryUrl": "https://myaadhaar.uidai.gov.in/",
+  "pageUrlPatterns": [
+    "myaadhaar\\.uidai\\.gov\\.in"
+  ],
+  "requiredInputs": [
+    "aadhaar_number",
+    "captcha",
+    "otp",
+    "new_name",
+    "new_dob"
+  ],
+  "requiredFiles": [
+    "document"
+  ],
+  "instructions": "Advanced workflow for updating Aadhaar Name or DOB. Requires valid supporting documents.",
+  "starterActionPlan": [
+    {
+      "id": "start",
+      "action": "navigate",
+      "value": "https://myaadhaar.uidai.gov.in/",
+      "description": "Navigate to MyAadhaar portal"
+    },
+    {
+      "id": "login_btn",
+      "action": "click",
+      "target": {
+        "value": "button:has-text('Login')",
+        "fallbackSelectors": ["text=/Login/i", ".login-btn"]
+      },
+      "description": "Click Login to proceed"
+    },
+    {
+      "id": "wait_uid",
+      "action": "waitForSelector",
+      "target": {
+        "value": "input[name='uid']",
+        "fallbackSelectors": ["input[placeholder*='Aadhaar']"]
+      },
+      "description": "Wait for Aadhaar input"
+    },
+    {
+      "id": "ask_uid",
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "contextMessage": "Please provide your Aadhaar number to begin the update process."
+    },
+    {
+      "id": "fill_uid",
+      "action": "fill",
+      "target": {
+        "value": "input[name='uid']",
+        "fallbackSelectors": ["input[placeholder*='Aadhaar']"]
+      },
+      "value": "{{userInput:ask_uid}}",
+      "humanType": true
+    },
+    {
+      "id": "ask_captcha",
+      "action": "pauseForUserInput",
+      "expectedInput": "captcha",
+      "contextMessage": "Please enter the CAPTCHA code from the screen."
+    },
+    {
+      "id": "fill_captcha",
+      "action": "fill",
+      "target": {
+        "value": "input[name='captcha']",
+        "fallbackSelectors": ["input[placeholder*='Captcha']"]
+      },
+      "value": "{{userInput:ask_captcha}}",
+      "humanType": true
+    },
+    {
+      "id": "send_otp",
+      "action": "click",
+      "target": {
+        "value": "button:has-text('Send OTP')",
+        "fallbackSelectors": ["text=/Send OTP/i"]
+      }
+    },
+    {
+      "id": "ask_otp",
+      "action": "pauseForUserInput",
+      "expectedInput": "otp",
+      "contextMessage": "Enter the OTP sent to your mobile."
+    },
+    {
+      "id": "fill_otp",
+      "action": "fill",
+      "target": {
+        "value": "input[name='otp']",
+        "fallbackSelectors": ["input[placeholder*='OTP']"]
+      },
+      "value": "{{userInput:ask_otp}}",
+      "humanType": true
+    },
+    {
+      "id": "login_submit",
+      "action": "click",
+      "target": {
+        "value": "button:has-text('Login')",
+        "fallbackSelectors": ["button[type='submit']"]
+      }
+    },
+    {
+      "id": "wait_dashboard",
+      "action": "waitForSelector",
+      "target": {
+        "value": "text=/Update Aadhaar Online/i",
+        "fallbackSelectors": [".service-card:has-text('Update')"]
+      },
+      "timeout": 30000
+    },
+    {
+      "id": "click_update",
+      "action": "click",
+      "target": {
+        "value": "text=/Update Aadhaar Online/i"
+      }
+    },
+    {
+      "id": "proceed_update",
+      "action": "click",
+      "target": {
+        "value": "button:has-text('Proceed to Update Aadhaar')",
+        "fallbackSelectors": ["text=/Proceed/i"]
+      }
+    },
+    {
+      "id": "select_fields",
+      "action": "pauseForUserInput",
+      "expectedInput": "confirmation",
+      "contextMessage": "Please select Name or DOB on the screen and click 'Proceed'. Type 'done' when you have reached the field entry page."
+    },
+    {
+      "id": "upload_doc",
+      "action": "upload",
+      "target": {
+        "value": "input[type='file']",
+        "fallbackSelectors": ["#upload-doc"]
+      },
+      "value": "{{userFile:document}}",
+      "description": "Upload supporting document"
+    },
+    {
+      "id": "final_step",
+      "action": "pauseForUserInput",
+      "expectedInput": "confirmation",
+      "contextMessage": "I have uploaded the document. Please review the details, complete the payment, and let me know when it's done."
+    }
+  ],
+  "errorRecoveryPlan": [
+    {
+      "id": "refresh",
+      "action": "refresh"
+    },
+    {
+      "id": "wait",
+      "action": "wait",
+      "value": "2000"
+    }
+  ],
+  "isActive": true,
+  "version": 1
+}

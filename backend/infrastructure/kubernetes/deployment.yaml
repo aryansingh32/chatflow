@@ -1,0 +1,288 @@
+# ============================================================
+# KUBERNETES MANIFESTS — Worker autoscaling deployment
+# Workers scale 2→20 based on Redis queue depth
+# ============================================================
+
+---
+# ── Namespace ─────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: automation-platform
+
+---
+# ── ConfigMap ────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+  namespace: automation-platform
+data:
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "automation"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  MIN_BROWSERS: "2"
+  MAX_BROWSERS: "8"
+  MAX_CONTEXTS_PER_BROWSER: "8"
+  LOG_LEVEL: "info"
+
+---
+# ── API Deployment ────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-service
+  namespace: automation-platform
+  labels:
+    app: api-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-service
+  template:
+    metadata:
+      labels:
+        app: api-service
+    spec:
+      containers:
+        - name: api
+          image: automation-platform/api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+---
+# ── API Service ───────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: automation-platform
+spec:
+  selector:
+    app: api-service
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP
+
+---
+# ── Worker Deployment ─────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-service
+  namespace: automation-platform
+  labels:
+    app: worker-service
+spec:
+  replicas: 3               # HPA manages actual count
+  selector:
+    matchLabels:
+      app: worker-service
+  template:
+    metadata:
+      labels:
+        app: worker-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+    spec:
+      # Give Chromium plenty of shared memory
+      volumes:
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+        - name: screenshots
+          emptyDir: {}
+        - name: downloads
+          emptyDir: {}
+      containers:
+        - name: worker
+          image: automation-platform/worker:latest
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: shm
+              mountPath: /dev/shm
+            - name: screenshots
+              mountPath: /tmp/screenshots
+            - name: downloads
+              mountPath: /tmp/downloads
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secrets
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+          livenessProbe:
+            exec:
+              command: ["node", "-e", "process.exit(0)"]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          # Security: no privilege escalation
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+
+---
+# ── HPA — CPU-based autoscaling ───────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-hpa
+  namespace: automation-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-service
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 3
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300   # 5 min before scaling down
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+
+---
+# ── KEDA ScaledObject — Queue-based scaling ───────────────────
+# Requires KEDA installed: https://keda.sh
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker-queue-scaler
+  namespace: automation-platform
+spec:
+  scaleTargetRef:
+    name: worker-service
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  cooldownPeriod: 300
+  triggers:
+    - type: redis
+      metadata:
+        address: "redis:6379"
+        listName: "bull:queue:execute:wait"
+        listLength: "10"          # 1 worker per 10 queued jobs
+    - type: redis
+      metadata:
+        address: "redis:6379"
+        listName: "bull:queue:crawl:wait"
+        listLength: "5"
+
+---
+# ── Scheduler Deployment (singleton) ──────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler-service
+  namespace: automation-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scheduler-service
+  template:
+    metadata:
+      labels:
+        app: scheduler-service
+    spec:
+      containers:
+        - name: scheduler
+          image: automation-platform/scheduler:latest
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secrets
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+
+---
+# ── Ingress ───────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform-ingress
+  namespace: automation-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.automation.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-service
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - api.automation.example.com
+      secretName: automation-tls

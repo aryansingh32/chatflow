@@ -1,0 +1,39 @@
+{
+  "name": "automation-platform",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "packages/api-service",
+    "packages/crawler-service",
+    "packages/execution-service",
+    "packages/ai-service",
+    "packages/scheduler-service"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "dev:full": "concurrently \"npm run dev:api\" \"npm run dev:worker\"",
+    "dev:api": "node --import tsx packages/api-service/server.ts",
+    "dev:worker": "node --import tsx packages/execution-service/worker.ts",
+    "dev:scheduler": "tsx packages/scheduler-service/scheduler.ts",
+    "workflow:load": "node --import tsx packages/shared/workflow-loader.ts",
+    "seed:test:aadhaar": "node --import tsx scripts/seed-and-test-aadhaar-workflow.ts",
+    "test:backend": "node scripts/test-backend.mjs",
+    "validate:backend": "node --import tsx scripts/validate-backend.mjs",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf packages/*/dist tsconfig.tsbuildinfo"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}

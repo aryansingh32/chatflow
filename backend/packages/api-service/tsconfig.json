@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".."
+  },
+  "include": ["./**/*.ts", "../execution-service/browser-pool.ts", "../execution-service/proxy-manager.ts"],
+  "exclude": ["dist", "**/dist/**"],
+  "references": [
+    { "path": "../shared" },
+    { "path": "../execution-service" }
+  ]
+}

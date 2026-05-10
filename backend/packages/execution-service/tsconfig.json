@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".."
+  },
+  "include": ["./**/*.ts", "../crawler-service/crawler.ts", "../ai-service/planner.ts"],
+  "exclude": ["dist", "**/dist/**"],
+  "references": [
+    { "path": "../shared" },
+    { "path": "../crawler-service" },
+    { "path": "../ai-service" }
+  ]
+}

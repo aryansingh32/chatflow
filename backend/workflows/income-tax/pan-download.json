@@ -1,0 +1,125 @@
+{
+  "id": "pan-download-efiling",
+  "siteId": "income-tax-efiling",
+  "name": "PAN Download / Status Check",
+  "category": "tax",
+  "trigger": "download pan card",
+  "triggerPhrases": [
+    "get pan card",
+    "download e-pan",
+    "pan card status",
+    "check pan linking"
+  ],
+  "portalType": "banking",
+  "entryUrl": "https://www.incometax.gov.in/iec/foportal/",
+  "pageUrlPatterns": [
+    "incometax\\.gov\\.in"
+  ],
+  "requiredInputs": [
+    "pan_number",
+    "aadhaar_number",
+    "otp"
+  ],
+  "requiredFiles": [],
+  "instructions": "Workflow for checking PAN status or downloading e-PAN from the official e-filing portal.",
+  "starterActionPlan": [
+    {
+      "id": "nav",
+      "action": "navigate",
+      "value": "https://www.incometax.gov.in/iec/foportal/",
+      "description": "Navigate to Income Tax portal"
+    },
+    {
+      "id": "instant_epan",
+      "action": "click",
+      "target": {
+        "value": "text=/Instant e-PAN/i",
+        "fallbackSelectors": ["a[href*='e-pan']", "button:has-text('e-PAN')"]
+      },
+      "description": "Click on Instant e-PAN service"
+    },
+    {
+      "id": "check_status",
+      "action": "click",
+      "target": {
+        "value": "text=/Check Status/i",
+        "fallbackSelectors": ["button:has-text('Continue')"]
+      },
+      "description": "Proceed to Check Status / Download PAN"
+    },
+    {
+      "id": "ask_aadhaar",
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "contextMessage": "Please provide your 12-digit Aadhaar number to fetch PAN details."
+    },
+    {
+      "id": "fill_aadhaar",
+      "action": "fill",
+      "target": {
+        "value": "input[id*='aadhaar']",
+        "fallbackSelectors": ["input[name*='aadhaar']", "input[placeholder*='Aadhaar']"]
+      },
+      "value": "{{userInput:ask_aadhaar}}",
+      "humanType": true
+    },
+    {
+      "id": "continue_1",
+      "action": "click",
+      "target": {
+        "value": "button:has-text('Continue')",
+        "fallbackSelectors": ["button[type='submit']"]
+      }
+    },
+    {
+      "id": "ask_otp",
+      "action": "pauseForUserInput",
+      "expectedInput": "otp",
+      "contextMessage": "Enter the 6-digit OTP sent to your Aadhaar-linked mobile."
+    },
+    {
+      "id": "fill_otp",
+      "action": "fill",
+      "target": {
+        "value": "input[id*='otp']",
+        "fallbackSelectors": ["input[name*='otp']"]
+      },
+      "value": "{{userInput:ask_otp}}",
+      "humanType": true
+    },
+    {
+      "id": "continue_2",
+      "action": "click",
+      "target": {
+        "value": "button:has-text('Continue')"
+      }
+    },
+    {
+      "id": "wait_result",
+      "action": "waitForSelector",
+      "target": {
+        "value": "text=/Download e-PAN/i",
+        "fallbackSelectors": ["button:has-text('Download')"]
+      },
+      "timeout": 20000
+    },
+    {
+      "id": "download_pan",
+      "action": "download",
+      "target": {
+        "value": "text=/Download e-PAN/i",
+        "fallbackSelectors": ["button:has-text('Download')"]
+      },
+      "value": "user-file-download:document:e-pan.pdf"
+    }
+  ],
+  "errorRecoveryPlan": [
+    {
+      "id": "retry_nav",
+      "action": "navigate",
+      "value": "https://www.incometax.gov.in/iec/foportal/"
+    }
+  ],
+  "isActive": true,
+  "version": 1
+}
