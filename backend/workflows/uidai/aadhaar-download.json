@@ -153,8 +153,9 @@
     {
       "id": "s11_retry",
       "order": 11.5,
-      "action": "conditional",
-      "description": "Check if CAPTCHA was invalid and retry once",
+      "action": "retryLoop",
+      "retries": 5,
+      "description": "Check if CAPTCHA was invalid and retry until successful",
       "condition": {
         "type": "exists",
         "target": "text=/Invalid Captcha/i, text=/Captcha is Invalid/i"

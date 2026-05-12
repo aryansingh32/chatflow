@@ -639,6 +639,21 @@ const ACTION_HANDLERS: Record<string, ActionHandler> = {
     await executeNestedSteps(branch, ctx);
   },
 
+  retryLoop: async (step, ctx) => {
+    const maxRetries = step.retries ?? 5; // Default dynamic limit
+    let attempts = 0;
+    while (attempts < maxRetries) {
+      const conditionMet = await evaluateCondition(step, ctx);
+      if (!conditionMet) break; // Error condition no longer met, success!
+      
+      await executeNestedSteps(step.trueSteps, ctx);
+      attempts++;
+    }
+    if (attempts >= maxRetries && await evaluateCondition(step, ctx)) {
+      throw new Error(`Retry loop failed after ${maxRetries} attempts`);
+    }
+  },
+
   runSubWorkflow: async (step, ctx) => {
     const workflowId = resolveRuntimeValue(step.value, ctx);
     if (!workflowId) throw new Error('runSubWorkflow requires a workflow id or name');

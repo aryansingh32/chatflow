@@ -193,7 +193,8 @@ export type ActionType =
   | 'wait'
   | 'screenshot'
   | 'extract'
-  | 'payment';
+  | 'payment'
+  | 'retryLoop';
 
 // ─── Execution Results ───────────────────────────────────────
 
