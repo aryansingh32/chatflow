@@ -157,7 +157,7 @@ export interface ActionStep {
   retries?: number;
   humanDelay?: boolean;
   humanType?: boolean;
-  expectedInput?: 'otp' | 'upi_id' | 'captcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password' | 'file';
+  expectedInput?: 'otp' | 'upi_id' | 'captcha' | 'clickCaptcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password' | 'file';
   contextMessage?: string;
   condition?: {
     type: 'exists' | 'contains_text' | 'url_contains' | 'status';
@@ -310,7 +310,7 @@ export interface ConversationState {
   awaitingInput?: {
     jobId: string;
     stepId: string;
-    type: 'otp' | 'upi_id' | 'captcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password' | 'file';
+    type: 'otp' | 'upi_id' | 'captcha' | 'clickCaptcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password' | 'file';
     contextMessage: string;
   };
   memoryContext: Record<string, any>;
@@ -325,7 +325,7 @@ export interface JobRuntimeState {
   task: string;
   status: 'queued' | 'running' | 'paused' | 'completed' | 'failed';
   activeStepId?: string;
-  lastInputType?: 'otp' | 'upi_id' | 'captcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password' | 'file';
+  lastInputType?: 'otp' | 'upi_id' | 'captcha' | 'clickCaptcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password' | 'file';
   createdAt: string;
   updatedAt: string;
 }

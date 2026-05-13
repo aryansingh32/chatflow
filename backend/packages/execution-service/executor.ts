@@ -15,6 +15,7 @@ import { humanDelay, humanClick, humanType, humanScroll } from './human-behavior
 import { getRedisClient } from '../shared/db/index.js';
 import { userFileStore } from './user-file-store.js';
 import { createLogger } from '../shared/logger/index.js';
+import { captchaService } from './captcha-service.js';
 
 const logger = createLogger('execution-engine');
 
@@ -468,6 +469,31 @@ const ACTION_HANDLERS: Record<string, ActionHandler> = {
   },
 
   pauseForUserInput: async (step, ctx) => {
+    if (step.expectedInput === 'captcha') {
+      try {
+        const locator = await resolveLocator(step, ctx);
+        let captchaUrl = '';
+        if (locator) {
+          const src = await locator.first().getAttribute('src');
+          captchaUrl = src && src.startsWith('data:') ? src : `data:image/jpeg;base64,${(await locator.first().screenshot({ type: 'jpeg' })).toString('base64')}`;
+        }
+        
+        const solution = await captchaService.solve({
+          id: `${ctx.jobId}_${step.id}`,
+          type: 'text',
+          imageUrl: captchaUrl,
+          siteId: ctx.siteId,
+          userId: ctx.userId,
+          premium: false, // TODO: Check user subscription
+        });
+
+        ctx.runtimeInputs[step.id] = solution;
+        return;
+      } catch (err) {
+        logger.warn('captcha:automated-solve-failed-falling-back', { jobId: ctx.jobId, error: (err as Error).message });
+      }
+    }
+
     const redis = await getRedisClient();
     await ensureNotCancelled(ctx);
     
@@ -699,6 +725,59 @@ const ACTION_HANDLERS: Record<string, ActionHandler> = {
     await ctx.page.reload({ waitUntil: 'domcontentloaded', timeout: step.timeout });
     await ctx.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
   },
+
+  clickCaptcha: async (step, ctx) => {
+    // This handler waits for the user to click coordinates on an image
+    // then replays those clicks on the browser page.
+    const redis = await getRedisClient();
+    await updateJobRuntimeState(ctx, {
+      status: 'paused',
+      activeStepId: step.id,
+      lastInputType: 'clickCaptcha',
+    });
+
+    // Capture the captcha container screenshot if possible
+    let captchaUrl = '';
+    try {
+      const locator = await resolveLocator(step, ctx);
+      const buffer = await locator.first().screenshot({ type: 'jpeg', quality: 80 });
+      captchaUrl = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+    } catch {}
+
+    await redis.publish('chat:pause', JSON.stringify({
+      jobId: ctx.jobId,
+      userId: ctx.userId,
+      sessionId: ctx.sessionId,
+      stepId: step.id,
+      type: 'clickCaptcha',
+      contextMessage: step.contextMessage || 'Please click the correct images in the captcha below.',
+      data: { captchaUrl }
+    }));
+
+    return new Promise<void>((resolve, reject) => {
+      const subRedis = redis.duplicate();
+      subRedis.connect().then(() => {
+        subRedis.subscribe(`job:resume:${ctx.jobId}`, async (message) => {
+          try {
+            const { points } = JSON.parse(message) as { points: Array<{ x: number, y: number }> };
+            const locator = await resolveLocator(step, ctx);
+            const box = await locator.first().boundingBox();
+            if (box && points) {
+              for (const pt of points) {
+                await ctx.page.mouse.click(box.x + pt.x, box.y + pt.y);
+                await humanDelay(100, 300);
+              }
+            }
+            await subRedis.quit();
+            resolve();
+          } catch (err) {
+            await subRedis.quit();
+            reject(err);
+          }
+        });
+      });
+    });
+  },
 };
 
 export class ExecutionEngine {
@@ -753,35 +832,60 @@ export class ExecutionEngine {
       (ctx as any).activeStream = stream;
       await updateJobRuntimeState(ctx, { status: 'running' });
 
-      try {
-        for (const rawStep of actionPlan) {
-          await ensureNotCancelled(ctx);
-          const step = normalizeStep(rawStep);
-          const result = await this.executeStep(step, ctx);
-          stepResults.push(result);
+      let attempts = 0;
+      const MAX_JOB_ATTEMPTS = 3;
+      let allSucceeded = false;
 
-          if (!result.success && ctx.workflowRecoveryPlan?.length) {
-            await executeNestedSteps(ctx.workflowRecoveryPlan, ctx);
-            const retryResult = await this.executeStep(step, ctx);
-            stepResults.push(retryResult);
-            ctx.workflowRecoveryPlan = undefined;
-            if (retryResult.success) continue;
+      while (attempts < MAX_JOB_ATTEMPTS && !allSucceeded) {
+        attempts++;
+        try {
+          // Clear step results for retry if not first attempt
+          if (attempts > 1) {
+            stepResults.length = 0;
+            logger.info('job:retrying-full-execution', { jobId: job.id, attempt: attempts });
+            await ctx.page.reload({ waitUntil: 'networkidle' }).catch(() => {});
           }
 
-          if (!result.success) break;
+          for (const rawStep of actionPlan) {
+            await ensureNotCancelled(ctx);
+            const step = normalizeStep(rawStep);
+            const result = await this.executeStep(step, ctx);
+            stepResults.push(result);
+
+            if (!result.success && ctx.workflowRecoveryPlan?.length) {
+              await executeNestedSteps(ctx.workflowRecoveryPlan, ctx);
+              const retryResult = await this.executeStep(step, ctx);
+              stepResults.push(retryResult);
+              ctx.workflowRecoveryPlan = undefined;
+              if (retryResult.success) continue;
+            }
+
+            if (!result.success) break;
+          }
+
+          allSucceeded = stepResults.every((result) => result.success);
+        } catch (err) {
+          logger.error('job:execution-error', { jobId: job.id, attempt: attempts, error: (err as Error).message });
+          if (attempts >= MAX_JOB_ATTEMPTS) throw err;
+          await humanDelay(2000 * attempts, 5000 * attempts);
         }
-      } finally {
-        stream.stop();
       }
+
+      stream.stop();
+
 
       await this.sessionManager.save(sessionId, page, lease.context);
 
-      const allSucceeded = stepResults.every((result) => result.success);
+      allSucceeded = stepResults.every((result) => result.success);
       await this.logResult(job.id, job.payload.siteId, allSucceeded, stepResults, ctx.metrics);
       await updateJobRuntimeState(ctx, { status: allSucceeded ? 'completed' : 'failed' });
 
       // Cleanup old temp files (best effort)
       userFileStore.cleanupTempFiles().catch(() => {});
+      
+      // Explicitly release the context to immediately destroy it and free up memory
+      await pool.releaseContext(contextId, true);
+      contextId = undefined; // prevent catch block from accessing it again
 
       return {
         jobId: job.id,
@@ -829,6 +933,11 @@ export class ExecutionEngine {
 
       if (wasCancelled) {
         logger.warn('job:cancelled', { jobId: job.id, userId: job.userId, sessionId });
+      }
+
+      // Ensure the context is released on failure as well
+      if (contextId) {
+        await pool.releaseContext(contextId, false).catch(() => {});
       }
 
       return {

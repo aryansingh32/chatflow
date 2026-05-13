@@ -5,12 +5,12 @@ import type {
   CrawlJob, ExecuteJob, RemapJob,
   JobPriority,
 } from '../shared/types/index.js';
-import { enqueueJob, getAllQueueStats } from '../shared/queue/index.js';
+import { enqueueJob, getAllQueueStats, getJobPosition } from '../shared/queue/index.js';
 import { getPgPool, getRedisClient, runMigrations, CacheKeys } from '../shared/db/index.js';
 import { getBrowserPool } from '../execution-service/browser-pool.js';
 import { ProxyManager } from '../execution-service/proxy-manager.js';
 import { getAIPlanner, buildSyntheticSnapshot } from '../ai-service/planner.js';
-import { register as promRegister } from 'prom-client';
+import { register as promRegister, Gauge } from 'prom-client';
 import { Server as SocketIOServer } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { chatOrchestrator } from './chat-orchestrator.js';
@@ -20,6 +20,7 @@ import type { ActionStep, JobRuntimeState } from '../shared/types/index.js';
 import { fileStorageService } from './file-storage.service.js';
 import { workflowLoader } from '../shared/workflow-loader.js';
 import { createLogger } from '../shared/logger/index.js';
+import { registerAdminRoutes } from './admin-routes.js';
 
 // ============================================================
 // API SERVICE — Fastify gateway
@@ -710,6 +711,9 @@ async function buildApp(): Promise<FastifyInstance> {
     };
   });
 
+  // ── Admin Panel Routes ─────────────────────────────────────
+  await registerAdminRoutes(app);
+
   return app;
 }
 
@@ -833,6 +837,22 @@ async function main() {
     // Track socket → active jobs for cleanup on disconnect
     const socketJobMap = new Map<string, { userId: string; sessionId: string; jobIds: Set<string> }>();
 
+const systemMemoryGauge = new Gauge({
+  name: 'system_memory_usage_bytes',
+  help: 'Current system memory usage',
+});
+const activeSessionsGauge = new Gauge({
+  name: 'system_active_sessions_total',
+  help: 'Total number of active user sessions via WebSocket',
+});
+
+// Periodically update metrics
+setInterval(() => {
+  systemMemoryGauge.set(process.memoryUsage().rss);
+  activeSessionsGauge.set(socketJobMap.size);
+}, 10000);
+
+
     // Handle incoming connections
     io.on('connection', (socket) => {
       logger.info('socket:connected', { socketId: socket.id });
@@ -868,6 +888,23 @@ async function main() {
               streamSub.quit();
             });
           });
+
+          // Queue Position polling
+          let queueInterval: NodeJS.Timeout;
+          const pollQueue = async () => {
+            try {
+               const pos = await getJobPosition('execute', data.activeJobId!);
+               if (pos !== null) {
+                 socket.emit('job:queue-position', { jobId: data.activeJobId, position: pos });
+               } else {
+                 clearInterval(queueInterval);
+               }
+            } catch (err) {}
+          };
+          queueInterval = setInterval(pollQueue, 3000);
+          pollQueue();
+
+          socket.on('disconnect', () => clearInterval(queueInterval));
         }
       });
 

@@ -60,31 +60,28 @@
 [1] [BrowserPool] Retiring aged browser clve7902
 [1] [BrowserPool] Browser clve7902 disconnected
 [1] [BrowserPool] Spawned browser xlzot01m
--47e7-938d-758900c69487"}
-[1] [BrowserPool] Reclaiming idle context h4us8em0
-[1] {"ts":"2026-05-10T19:29:53.638Z","level":"info","scope":"shared-queue","message":"worker:processing","queueName":"execute","jobId":"85930795-a4dd-435b-b0e4-05b408dd8d67"}
-[1] [Worker] Planning source: structured-workflow (Aadhaar Download)
-[1] [BrowserPool] Context 10o939yp acquired for session khidgztndbf2-6uh7z4t8dbf2
-[1] {"ts":"2026-05-10T19:30:26.266Z","level":"warn","scope":"execution-engine","message":"job:cancelled","jobId":"85930795-a4dd-435b-b0e4-05b408dd8d67","userId":"default-user","sessionId":"khidgztndbf2-6uh7z4t8dbf2"}
-[1] {"ts":"2026-05-10T19:30:26.304Z","level":"info","scope":"shared-queue","message":"worker:completed","queueName":"execute","jobId":"85930795-a4dd-435b-b0e4-05b408dd8d67"}
-[1] [BrowserPool] Reclaiming idle context 10o939yp
-[1] [BrowserPool] Retiring aged browser m0nn32do
-[1] [BrowserPool] Browser m0nn32do disconnected
-[1] [BrowserPool] Spawned browser rr8bdil9
- concurrency: 10
-[1]   • Remap concurrency:   2
-[1]   • AI Plan concurrency: 5
-[1] 
-[0] {"ts":"2026-05-10T19:21:44.094Z","level":"info","scope":"api-service","message":"socket:disconnected","socketId":"fEID3irMsBvMraLWAAAB","reason":"transport close"}
-[0] {"ts":"2026-05-10T19:21:45.532Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-3","method":"GET","url":"/health"}
-[0] {"ts":"2026-05-10T19:21:45.597Z","level":"info","scope":"api-service","message":"socket:connected","socketId":"8qeGzHiYZmeQ-AMzAAAD"}
-[0] {"ts":"2026-05-10T19:21:45.603Z","level":"info","scope":"api-service","message":"socket:join","socketId":"8qeGzHiYZmeQ-AMzAAAD","userId":"default-user","sessionId":"x1rgdmffy1t5-wu5nri7oy1t5"}
-[0] [2026-05-11 00:51:45.529 +0530] [32mINFO[39m (165710): [36mincoming request[39m
-[0]     reqId: "req-3"
-[0]     req: {
-[0]       "method": "GET",
-[0]       "url": "/health",
-[0]       "hostname": "localhost:3000",
+[1] [BrowserPool] Retiring aged browser xlzot01m
+[1] [BrowserPool] Browser xlzot01m disconnected
+[1] [BrowserPool] Spawned browser ih371hcc
+[1] [BrowserPool] Retiring aged browser ih371hcc
+[1] [BrowserPool] Browser ih371hcc disconnected
+[1] [BrowserPool] Spawned browser cqbszb14
+[1] [BrowserPool] Retiring aged browser cqbszb14
+[1] [BrowserPool] Browser cqbszb14 disconnected
+[1] [BrowserPool] Spawned browser 3nr9oix4
+[1] {"ts":"2026-05-10T21:30:28.372Z","level":"error","scope":"shared-db","message":"redis:client-error","errorName":"Error","errorMessage":"Socket closed unexpectedly","stack":"Error: Socket closed unexpectedly\n    at Socket.<anonymous> (/home/unknown/Desktop/chatflow/backend/node_modules/@redis/client/dist/lib/client/socket.js:194:118)\n    at Object.onceWrapper (node:events:639:26)\n    at Socket.emit (node:events:524:28)\n    at TCP.<anonymous> (node:net:343:12)\n    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)"}
+ Spawned browser rr8bdil9
+[1] [BrowserPool] Retiring aged browser rr8bdil9
+[1] [BrowserPool] Browser rr8bdil9 disconnected
+[1] [BrowserPool] Spawned browser l7dukt2l
+[1] [BrowserPool] Retiring aged browser l7dukt2l
+[1] [BrowserPool] Browser l7dukt2l disconnected
+[1] [BrowserPool] Spawned browser y6h841o9
+[1] [BrowserPool] Retiring aged browser y6h841o9
+[1] [BrowserPool] Browser y6h841o9 disconnected
+[1] [BrowserPool] Spawned browser 9c7fwi18
+[1] {"ts":"2026-05-10T21:30:28.353Z","level":"error","scope":"shared-db","message":"redis:client-error","errorName":"Error","errorMessage":"Socket closed unexpectedly","stack":"Error: Socket closed unexpectedly\n    at Socket.<anonymous> (/home/unknown/Desktop/chatflow/backend/node_modules/@redis/client/dist/lib/client/socket.js:194:118)\n    at Object.onceWrapper (node:events:639:26)\n    at Socket.emit (node:events:524:28)\n    at TCP.<anonymous> (node:net:343:12)\n    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)"}
+00",
 [0]       "remoteAddress": "127.0.0.1",
 [0]       "remotePort": 34430
 [0]     }
@@ -348,16 +345,16 @@
 [0]     req[1] [BrowserPool] Retiring aged browser t1978xgh
 [1] [BrowserPool] Browser t1978xgh disconnected
 [1] [BrowserPool] Spawned browser o5tcoq37
-ddress": "127.0.0.1",
-[0]       "remotePort": 42022
-[0]     }
-[0] [2026-05-11 00:52:55.961 +0530] [32mINFO[39m (165710): [36mrequest completed[39m
-[0]     reqId: "req-i"
-[0]     res: {
-[0]       "statusCode": 200
-[0]     }
-[0]     responseTime: 3.899856999516487
-[0] {"ts":"2026-05-10T19:22:57.466Z","level":"info","scope":"api-service","message":"socket:join","socketId":"R5gOJT4gvn_MUpNqAAAH","userId":"default-user","sessionId":"kr6ev35fspwg-s8ad544mspwg","activeJobId":"041a61f4-0920-47e7-938d-758900c69487"}
+[1] [BrowserPool] Retiring aged browser o5tcoq37
+[1] [BrowserPool] Browser o5tcoq37 disconnected
+[1] [BrowserPool] Spawned browser f9fqxsau
+[1] [BrowserPool] Retiring aged browser f9fqxsau
+[1] [BrowserPool] Browser f9fqxsau disconnected
+[1] [BrowserPool] Spawned browser wsl94uw3
+[1] [BrowserPool] Retiring aged browser wsl94uw3
+[1] [BrowserPool] Browser wsl94uw3 disconnected
+[1] [BrowserPool] Spawned browser fllmv1cn
+r","sessionId":"kr6ev35fspwg-s8ad544mspwg","activeJobId":"041a61f4-0920-47e7-938d-758900c69487"}
 [0] {"ts":"2026-05-10T19:22:57.587Z","level":"info","scope":"api-service","message":"request:start","requestId":"req-j","method":"GET","url":"/health"}
 [0] {"ts":"2026-05-10T19:22:57.591Z","level":"info","scope":"api-service","message":"request:done","requestId":"req-j","method":"GET","url":"/health","statusCode":200,"responseTimeMs":4.048424996435642}
 [0] [2026-05-11 00:52:57.586 +0530] [32mINFO[39m (165710): [36mincoming request[39m
@@ -2843,3 +2840,24 @@ ddress": "127.0.0.1",
 [1] [BrowserPool] Retiring aged browser s2wbqnc3
 [1] [BrowserPool] Browser s2wbqnc3 disconnected
 [1] [BrowserPool] Spawned browser gfh9nycy
+[0] [BrowserPool] Retiring aged browser nynpyfjh
+[0] [BrowserPool] Browser nynpyfjh disconnected
+[0] [BrowserPool] Spawned browser tz2kcysh
+[1] [BrowserPool] Retiring aged browser gfh9nycy
+[1] [BrowserPool] Browser gfh9nycy disconnected
+[1] [BrowserPool] Spawned browser sjpdsic1
+[0] {"ts":"2026-05-10T20:37:15.453Z","level":"info","scope":"api-service","message":"socket:disconnected","socketId":"LYGYVmGfjGhZNzB6AAAV","reason":"transport close"}
+[0] {"ts":"2026-05-10T20:37:15.660Z","level":"warn","scope":"api-service","message":"job:auto-cancel-on-disconnect","jobId":"ba8aebe9-a9f5-49a7-b60f-da109d2e133a","socketId":"LYGYVmGfjGhZNzB6AAAV","reason":"transport close"}
+[0] [BrowserPool] Retiring aged browser tz2kcysh
+[0] [BrowserPool] Browser tz2kcysh disconnected
+[0] [BrowserPool] Spawned browser wfx92cde
+[1] [BrowserPool] Retiring aged browser sjpdsic1
+[1] [BrowserPool] Browser sjpdsic1 disconnected
+[1] [BrowserPool] Spawned browser 3zffui3z
+[0] [BrowserPool] Retiring aged browser wfx92cde
+[0] [BrowserPool] Browser wfx92cde disconnected
+[0] [BrowserPool] Spawned browser fbm58jt3
+[1] [BrowserPool] Retiring aged browser 3zffui3z
+[1] [BrowserPool] Browser 3zffui3z disconnected
+[1] [BrowserPool] Spawned browser 3v8n7jnx
+[0] {"ts":"2026-05-10T21:29:56.504Z","level":"info","scope":"api-service","message":"socket:disconnected","socketId":"eikRGIKjSYierQOvAAAR","reason":"transport close"}

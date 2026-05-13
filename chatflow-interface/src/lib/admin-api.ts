@@ -1,0 +1,229 @@
+// ============================================================
+// ADMIN API CLIENT
+// Typed wrapper for all /admin/* backend endpoints.
+// Uses x-admin-key header for authentication.
+// ============================================================
+
+import { config } from "./config";
+import { createLogger } from "./logger";
+
+const logger = createLogger("admin-api");
+
+const ADMIN_KEY =
+  (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_ADMIN_KEY : undefined) ??
+  config.apiKey;
+
+async function adminRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const url = `${config.apiBaseUrl}${path}`;
+  const headers: Record<string, string> = {
+    "x-admin-key": ADMIN_KEY,
+    ...((options.headers as Record<string, string>) || {}),
+  };
+  if (options.body && typeof options.body === "string") {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(url, { ...options, headers });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    let msg = `Admin API ${res.status}: ${res.statusText}`;
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed.error) msg = parsed.error;
+    } catch {}
+    logger.error("admin:request-failed", { url, status: res.status, msg });
+    throw new Error(msg);
+  }
+  // metrics endpoint returns text
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) return res.json() as Promise<T>;
+  return res.text() as unknown as T;
+}
+
+function aGet<T>(path: string) {
+  return adminRequest<T>(path, { method: "GET" });
+}
+function aPost<T>(path: string, body?: unknown) {
+  return adminRequest<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });
+}
+function aPut<T>(path: string, body?: unknown) {
+  return adminRequest<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined });
+}
+function aDel<T>(path: string) {
+  return adminRequest<T>(path, { method: "DELETE" });
+}
+
+// ── Types ─────────────────────────────────────────────────
+
+export interface SystemHealth {
+  status: "healthy" | "degraded";
+  db: { status: string; latencyMs: number };
+  redis: { status: string; latencyMs: number };
+  browsers: Record<string, unknown>;
+  uptime: number;
+  memory: {
+    rss: number;
+    heapUsed: number;
+    heapTotal: number;
+    external: number;
+    systemTotal: number;
+    systemFree: number;
+  };
+  cpu: number[];
+  nodeVersion: string;
+  platform: string;
+  timestamp: string;
+}
+
+export interface OverviewData {
+  health: SystemHealth;
+  queues: Record<string, unknown>;
+  jobStats: { total: number; completed: number; failed: number; running: number };
+  userCount: number;
+}
+
+export interface AdminJob {
+  job_id: string;
+  type: string;
+  status: string;
+  user_id: string;
+  started_at: string;
+  completed_at?: string;
+  error_message?: string;
+  task?: string;
+}
+
+export interface AdminUser {
+  user_id: string;
+  total_jobs: number;
+  completed_jobs: number;
+  failed_jobs: number;
+  last_active: string;
+  first_seen: string;
+}
+
+export interface AdminWorkflow {
+  id: string;
+  workflow_key?: string;
+  site_id: string;
+  category?: string;
+  name: string;
+  trigger: string;
+  trigger_phrases?: string[];
+  portal_type?: string;
+  entry_url?: string;
+  page_url?: string;
+  instructions: string;
+  is_active: boolean;
+  version?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaptchaItem {
+  id: string;
+  siteId: string;
+  type: string;
+  payload: unknown;
+  status: string;
+  createdAt: string;
+}
+
+export interface LogEntry {
+  level?: string;
+  message?: string;
+  msg?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+}
+
+export interface AdminSite {
+  id: string;
+  domain: string;
+  page_count: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── API ───────────────────────────────────────────────────
+
+export const adminApi = {
+  // Dashboard
+  overview: () => aGet<OverviewData>("/admin/overview"),
+  health: () => aGet<SystemHealth>("/admin/health"),
+  metrics: () => aGet<string>("/admin/metrics"),
+
+  // Queues
+  queues: () => aGet<{ queues: Record<string, unknown> }>("/admin/queues"),
+
+  // Jobs
+  listJobs: (params?: { status?: string; userId?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.userId) q.set("userId", params.userId);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+    return aGet<{ jobs: AdminJob[]; total: number }>(`/admin/jobs?${q}`);
+  },
+  getJob: (jobId: string) => aGet<{ job: AdminJob; runtime: unknown }>(`/admin/jobs/${jobId}`),
+  cancelJob: (jobId: string) => aPost<{ jobId: string; cancelled: boolean }>(`/admin/jobs/${jobId}/cancel`),
+  retryJob: (jobId: string) => aPost<{ jobId: string; retrying: boolean }>(`/admin/jobs/${jobId}/retry`),
+
+  // Users
+  listUsers: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+    return aGet<{ users: AdminUser[]; total: number }>(`/admin/users?${q}`);
+  },
+  getUser: (userId: string) => aGet<{ userId: string; jobs: AdminJob[]; profiles: unknown[]; files: unknown[] }>(`/admin/users/${userId}`),
+  getUserPrompts: (userId: string, limit = 50) =>
+    aGet<{ prompts: { job_id: string; prompt: string; status: string; started_at: string }[] }>(
+      `/admin/users/${userId}/prompts?limit=${limit}`
+    ),
+
+  // Workflows
+  listWorkflows: (params?: { siteId?: string; isActive?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.siteId) q.set("siteId", params.siteId);
+    if (params?.isActive) q.set("isActive", params.isActive);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+    return aGet<{ workflows: AdminWorkflow[]; total: number }>(`/admin/workflows?${q}`);
+  },
+  createWorkflow: (data: Partial<AdminWorkflow>) => aPost<{ workflow: AdminWorkflow }>("/admin/workflows", data),
+  updateWorkflow: (id: string, data: Partial<AdminWorkflow>) => aPut<{ workflow: AdminWorkflow }>(`/admin/workflows/${id}`, data),
+  deleteWorkflow: (id: string) => aDel<{ deleted: boolean }>(`/admin/workflows/${id}`),
+
+  // Browsers
+  browsers: () => aGet<{ browsers: Record<string, unknown> }>("/admin/browsers"),
+  recycleBrowsers: () => aPost<{ recycled: boolean }>("/admin/browsers/recycle"),
+
+  // Cache
+  flushCache: (pattern?: string) => aPost<{ flushed: number }>("/admin/cache/flush", { pattern }),
+
+  // Captcha
+  pendingCaptchas: () => aGet<{ captchas: CaptchaItem[] }>("/admin/captcha/pending"),
+  solveCaptcha: (captchaId: string, solution: string) =>
+    aPost<{ captchaId: string; solved: boolean }>(`/admin/captcha/${captchaId}/solve`, { solution }),
+
+  // Logs
+  getLogs: (service = "api", limit = 200) =>
+    aGet<{ service: string; entries: LogEntry[] }>(`/admin/logs?service=${service}&limit=${limit}`),
+
+  // Network
+  networkStats: () =>
+    aGet<{ requestsTotal: number; requestsFailed: number; avgLatencyMs: number; timestamp: string }>("/admin/network/stats"),
+
+  // Errors
+  getErrors: (limit = 100) => aGet<{ errors: LogEntry[] }>(`/admin/errors?limit=${limit}`),
+
+  // Sites
+  listSites: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+    return aGet<{ sites: AdminSite[]; total: number }>(`/admin/sites?${q}`);
+  },
+} as const;

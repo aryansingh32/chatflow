@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { PanelLeft, Monitor, Sparkles, Wifi, WifiOff } from "lucide-react";
+import { PanelLeft, Monitor, Sparkles, Wifi, WifiOff, ShieldCheck } from "lucide-react";
 import { useChatStore, uid } from "@/lib/chat-store";
 import { PROFILES } from "@/lib/chat-types";
 import type { ChatMessage, FileAttachment } from "@/lib/chat-types";
@@ -8,7 +8,12 @@ import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { LiveScreenPanel } from "@/components/chat/LiveScreenPanel";
 import { Composer } from "@/components/chat/Composer";
 import { MessageItem, TypingIndicator } from "@/components/chat/MessageItem";
-import { sendChatMessage, initializeBackend, resetSession, type BotEmitter } from "@/lib/backend-connector";
+import {
+  sendChatMessage,
+  initializeBackend,
+  resetSession,
+  type BotEmitter,
+} from "@/lib/backend-connector";
 import { api } from "@/lib/api-client";
 import { socketService } from "@/lib/socket-service";
 import { createLogger } from "@/lib/logger";
@@ -19,7 +24,11 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Agent — your personal automation chat" },
-      { name: "description", content: "Chat with your agent. Watch it work in real time, approve OTPs and payments, get files back instantly." },
+      {
+        name: "description",
+        content:
+          "Chat with your agent. Watch it work in real time, approve OTPs and payments, get files back instantly.",
+      },
     ],
   }),
   component: Index,
@@ -102,16 +111,17 @@ function Index() {
     initializeBackend(emitter);
 
     // Check backend health
-    api.health()
+    api
+      .health()
       .then(() => {
         setBackendAvailable(true);
         setConnected(true);
-        logger.info('health:ok');
+        logger.info("health:ok");
       })
       .catch((error) => {
         setBackendAvailable(false);
         setConnected(false);
-        logger.error('health:failed', error);
+        logger.error("health:failed", error);
       });
 
     // Poll connection status
@@ -158,13 +168,17 @@ function Index() {
         note: text || undefined,
       });
     } else if (text) {
-      store.appendMessage(tid, {
-        id: uid(),
-        role: "user",
-        type: "text",
-        createdAt: Date.now(),
-        content: text,
-      }, true);
+      store.appendMessage(
+        tid,
+        {
+          id: uid(),
+          role: "user",
+          type: "text",
+          createdAt: Date.now(),
+          content: text,
+        },
+        true,
+      );
     }
 
     setBusy(true);
@@ -173,7 +187,7 @@ function Index() {
     try {
       await sendChatMessage(text || "Process my upload", files, getEmitter());
     } catch (err) {
-      logger.error('chat:send-failed', err);
+      logger.error("chat:send-failed", err);
       store.appendMessage(tid, {
         id: uid(),
         role: "bot",
@@ -226,36 +240,54 @@ function Index() {
               Profile · {profile.name}
             </span>
             {/* Connection indicator */}
-            <span className={`ml-1 hidden items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] sm:inline-flex ${
-              connected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-            }`}>
+            <span
+              className={`ml-1 hidden items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] sm:inline-flex ${
+                connected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+              }`}
+            >
               {connected ? (
-                <><Wifi className="h-2.5 w-2.5" /> live</>
+                <>
+                  <Wifi className="h-2.5 w-2.5" /> live
+                </>
               ) : (
-                <><WifiOff className="h-2.5 w-2.5" /> offline</>
+                <>
+                  <WifiOff className="h-2.5 w-2.5" /> offline
+                </>
               )}
             </span>
           </div>
           <button
             onClick={() => setLiveOpen((v) => !v)}
             className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
-              liveOpen ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              liveOpen
+                ? "bg-primary/15 text-primary"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
             }`}
           >
             <Monitor className="h-3.5 w-3.5" />
             Live screen
           </button>
+          <a
+            href="/admin"
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Admin
+          </a>
         </header>
 
-        <div ref={scrollRef} key={store.activeId ?? "none"} className="scroll-thin flex-1 overflow-y-auto">
+        <div
+          ref={scrollRef}
+          key={store.activeId ?? "none"}
+          className="scroll-thin flex-1 overflow-y-auto"
+        >
           {showEmpty ? (
-            <EmptyState
-              onPick={(s) => send(s, [])}
-              backendAvailable={backendAvailable}
-            />
+            <EmptyState onPick={(s) => send(s, [])} backendAvailable={backendAvailable} />
           ) : (
             <div className="py-3">
-              {messages.map((m) => <MessageItem key={m.id} msg={m} />)}
+              {messages.map((m) => (
+                <MessageItem key={m.id} msg={m} />
+              ))}
               {typing && <TypingIndicator />}
             </div>
           )}
@@ -276,21 +308,33 @@ function Index() {
   );
 }
 
-function EmptyState({ onPick, backendAvailable }: { onPick: (text: string) => void; backendAvailable: boolean | null }) {
+function EmptyState({
+  onPick,
+  backendAvailable,
+}: {
+  onPick: (text: string) => void;
+  backendAvailable: boolean | null;
+}) {
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center px-6 text-center">
       <div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-primary/15 text-primary">
         <Sparkles className="h-6 w-6" />
       </div>
-      <h1 className="text-2xl font-semibold tracking-tight">Your AI assistant for government tasks</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        Your AI assistant for government tasks
+      </h1>
       <p className="mt-2 text-sm text-muted-foreground max-w-md">
-        Chat naturally — I can download your Aadhaar, fill job applications, check PAN status, and more. I'll handle the websites and ask you only when I need an OTP or confirmation.
+        Chat naturally — I can download your Aadhaar, fill job applications, check PAN status, and
+        more. I'll handle the websites and ask you only when I need an OTP or confirmation.
       </p>
 
       {backendAvailable === false && (
         <div className="mt-4 flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2.5 text-sm text-warning">
           <WifiOff className="h-4 w-4 shrink-0" />
-          <span>Backend not available. Start it with <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono">npm run dev:full</code></span>
+          <span>
+            Backend not available. Start it with{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono">npm run dev:full</code>
+          </span>
         </div>
       )}
 

@@ -43,9 +43,9 @@ interface BrowserPoolConfig {
 }
 
 const DEFAULT_CONFIG: BrowserPoolConfig = {
-  minBrowsers: 2,
-  maxBrowsers: 10,
-  maxContextsPerBrowser: 8,
+  minBrowsers: 0,
+  maxBrowsers: 5,
+  maxContextsPerBrowser: 10,
   contextIdleTimeoutMs: 5 * 60 * 1000,   // 5 minutes
   browserMaxAgeMs: 30 * 60 * 1000,        // 30 minutes
 };
@@ -146,8 +146,22 @@ export class BrowserPool extends EventEmitter {
     }
 
     await lease.page?.close().catch(() => {});
-    // Keep context alive for reuse — it will be reaped by idle reclaim
-    this.contextLastUsed.set(contextId, Date.now());
+    await lease.context.close().catch(() => {});
+    
+    // Immediately destroy the context to free memory
+    const pb = this.browsers.get(lease.browserId);
+    if (pb) {
+      pb.contextCount = Math.max(0, pb.contextCount - 1);
+      
+      // If browser has no contexts and we are strictly keeping 0 idle browsers, we could kill the browser here
+      if (pb.contextCount === 0 && this.config.minBrowsers === 0) {
+        await pb.browser.close().catch(() => {});
+        this.browsers.delete(lease.browserId);
+      }
+    }
+    
+    this.contexts.delete(contextId);
+    this.contextLastUsed.delete(contextId);
   }
 
   async getOrCreatePage(contextId: string): Promise<Page> {
@@ -382,7 +396,45 @@ export class BrowserPool extends EventEmitter {
     }, 30_000); // every 30 seconds
   }
 
+  // ─── Manual Reclaim ──────────────────────────────────────────
+  
+  async reclaimIdleBrowsers(): Promise<void> {
+    console.log('[BrowserPool] Manual reclaim triggered');
+    const now = Date.now();
+    
+    // 1. Reclaim idle contexts
+    for (const [contextId, lastUsed] of this.contextLastUsed) {
+      const lease = this.contexts.get(contextId);
+      if (lease) {
+        console.log(`[BrowserPool] Reclaiming context ${contextId}`);
+        await lease.page?.close().catch(() => {});
+        await lease.context.close().catch(() => {});
+        
+        const browser = this.browsers.get(lease.browserId);
+        if (browser) browser.contextCount = Math.max(0, browser.contextCount - 1);
+        
+        this.contexts.delete(contextId);
+        this.contextLastUsed.delete(contextId);
+      }
+    }
+
+    // 2. Close browsers with no contexts that are older than 1 minute (to avoid churn)
+    for (const [id, browser] of this.browsers) {
+      const age = now - browser.createdAt.getTime();
+      if (browser.contextCount === 0 && age > 60_000) {
+        // Keep minBrowsers alive
+        const healthy = [...this.browsers.values()].filter((b) => b.isHealthy).length;
+        if (healthy > this.config.minBrowsers) {
+          console.log(`[BrowserPool] Closing idle browser ${id}`);
+          await browser.browser.close().catch(() => {});
+          this.browsers.delete(id);
+        }
+      }
+    }
+  }
+
   // ─── Stats ────────────────────────────────────────────────────
+
 
   getStats() {
     return {
