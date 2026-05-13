@@ -19,6 +19,7 @@
     "dev:scheduler": "tsx packages/scheduler-service/scheduler.ts",
     "workflow:load": "node --import tsx packages/shared/workflow-loader.ts",
     "seed:test:aadhaar": "node --import tsx scripts/seed-and-test-aadhaar-workflow.ts",
+    "test": "vitest run",
     "test:backend": "node scripts/test-backend.mjs",
     "validate:backend": "node --import tsx scripts/validate-backend.mjs",
     "typecheck": "tsc --noEmit",
