@@ -1,7 +1,17 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  Activity, Users, Zap, CheckCircle2, XCircle, Server,
-  Globe, Database, Cpu, MemoryStick, Clock, AlertTriangle,
+  Activity,
+  Users,
+  Zap,
+  CheckCircle2,
+  XCircle,
+  Server,
+  Globe,
+  Database,
+  Cpu,
+  MemoryStick,
+  Clock,
+  AlertTriangle,
 } from "lucide-react";
 import { adminApi, type OverviewData, type SystemHealth } from "@/lib/admin-api";
 import { StatCard } from "./StatCard";
@@ -24,7 +34,9 @@ function HealthBar({ label, status, latency }: { label: string; status: string; 
   return (
     <div className="flex items-center justify-between rounded-xl border border-border/40 bg-card/60 px-4 py-3">
       <div className="flex items-center gap-2.5">
-        <span className={`h-2 w-2 rounded-full ${ok ? "bg-emerald-400" : "bg-red-400"} shadow-lg ${ok ? "shadow-emerald-400/50" : "shadow-red-400/50"}`} />
+        <span
+          className={`h-2 w-2 rounded-full ${ok ? "bg-emerald-400" : "bg-red-400"} shadow-lg ${ok ? "shadow-emerald-400/50" : "shadow-red-400/50"}`}
+        />
         <span className="text-sm font-medium text-foreground">{label}</span>
       </div>
       <div className="flex items-center gap-2">
@@ -41,7 +53,9 @@ function BrowserDonut({ stats }: { stats: Record<string, unknown> }) {
   const idle = total - active;
   return (
     <div className="rounded-2xl border border-border/40 bg-card/60 p-5">
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Browser Pool</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+        Browser Pool
+      </p>
       <div className="flex items-end gap-6">
         <div className="text-4xl font-bold text-foreground tabular-nums">{total}</div>
         <div className="flex flex-col gap-1 pb-1">
@@ -58,7 +72,9 @@ function QueueTable({ queues }: { queues: Record<string, unknown> }) {
   if (!entries.length) return null;
   return (
     <div className="rounded-2xl border border-border/40 bg-card/60 p-5">
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Queue Stats</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+        Queue Stats
+      </p>
       <div className="space-y-2">
         {entries.map(([name, stats]: [string, any]) => (
           <div key={name} className="flex items-center justify-between text-sm">
@@ -133,11 +149,17 @@ export function Dashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <div className={`h-2.5 w-2.5 rounded-full ${h?.status === "healthy" ? "bg-emerald-400 shadow-emerald-400/60" : "bg-amber-400 shadow-amber-400/60"} shadow-lg`} />
-        <span className={`text-sm font-semibold ${h?.status === "healthy" ? "text-emerald-300" : "text-amber-300"}`}>
+        <div
+          className={`h-2.5 w-2.5 rounded-full ${h?.status === "healthy" ? "bg-emerald-400 shadow-emerald-400/60" : "bg-amber-400 shadow-amber-400/60"} shadow-lg`}
+        />
+        <span
+          className={`text-sm font-semibold ${h?.status === "healthy" ? "text-emerald-300" : "text-amber-300"}`}
+        >
           System {h?.status === "healthy" ? "Healthy" : "Degraded"}
         </span>
-        <span className="text-xs text-muted-foreground ml-2">• Node {h?.nodeVersion} on {h?.platform}</span>
+        <span className="text-xs text-muted-foreground ml-2">
+          • Node {h?.nodeVersion} on {h?.platform}
+        </span>
       </div>
 
       {/* Stat Cards Row 1 */}
@@ -207,12 +229,22 @@ export function Dashboard() {
       {/* Infrastructure health + queues */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Infrastructure</p>
-          <HealthBar label="PostgreSQL" status={h?.db?.status ?? "unknown"} latency={h?.db?.latencyMs ?? -1} />
-          <HealthBar label="Redis" status={h?.redis?.status ?? "unknown"} latency={h?.redis?.latencyMs ?? -1} />
-          <BrowserDonut stats={h?.browsers as Record<string, unknown> ?? {}} />
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Infrastructure
+          </p>
+          <HealthBar
+            label="PostgreSQL"
+            status={h?.db?.status ?? "unknown"}
+            latency={h?.db?.latencyMs ?? -1}
+          />
+          <HealthBar
+            label="Redis"
+            status={h?.redis?.status ?? "unknown"}
+            latency={h?.redis?.latencyMs ?? -1}
+          />
+          <BrowserDonut stats={(h?.browsers as Record<string, unknown>) ?? {}} />
         </div>
-        <QueueTable queues={data?.queues as Record<string, unknown> ?? {}} />
+        <QueueTable queues={(data?.queues as Record<string, unknown>) ?? {}} />
       </div>
     </div>
   );
