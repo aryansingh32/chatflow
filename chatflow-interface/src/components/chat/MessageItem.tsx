@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   ChevronDown,
@@ -25,41 +25,51 @@ import type {
 import { InputCard } from "./InputCard";
 import { config } from "@/lib/config";
 
-export function MessageItem({ msg }: { msg: ChatMessage }) {
-  const isUser = msg.role === "user";
-  if (isUser) {
+// ⚡ Bolt Optimization: Added React.memo to prevent unnecessary re-renders of the entire message list
+// during frequent parent updates (like typing indicators or active stream patches).
+export const MessageItem = React.memo(
+  function MessageItem({ msg }: { msg: ChatMessage }) {
+    const isUser = msg.role === "user";
+    if (isUser) {
+      return (
+        <div className="flex justify-end px-4 py-2">
+          <div className="max-w-[78%]">
+            {msg.type === "text" && (
+              <div className="rounded-2xl rounded-br-md bg-bubble-user px-4 py-2.5 text-sm text-bubble-user-foreground">
+                {(msg as TextMessage).content}
+              </div>
+            )}
+            {msg.type === "file-upload" && <UserFileBubble msg={msg as FileMessage} />}
+          </div>
+        </div>
+      );
+    }
+
+    // Bot side – no background, full width content
     return (
-      <div className="flex justify-end px-4 py-2">
-        <div className="max-w-[78%]">
-          {msg.type === "text" && (
-            <div className="rounded-2xl rounded-br-md bg-bubble-user px-4 py-2.5 text-sm text-bubble-user-foreground">
-              {(msg as TextMessage).content}
-            </div>
-          )}
-          {msg.type === "file-upload" && <UserFileBubble msg={msg as FileMessage} />}
+      <div className="px-4 py-3">
+        <div className="mx-auto flex max-w-3xl gap-3">
+          <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary text-[11px] font-bold">
+            A
+          </div>
+          <div className="min-w-0 flex-1">
+            {msg.type === "text" && <BotText msg={msg as TextMessage} />}
+            {msg.type === "timeline" && <Timeline msg={msg as TimelineMessage} />}
+            {msg.type === "input-card" && <InputCard msg={msg as InputCardMessage} />}
+            {msg.type === "download" && <DownloadCard msg={msg as DownloadMessage} />}
+            {msg.type === "status" && <StatusBubble msg={msg as StatusMessage} />}
+          </div>
         </div>
       </div>
     );
-  }
-
-  // Bot side – no background, full width content
-  return (
-    <div className="px-4 py-3">
-      <div className="mx-auto flex max-w-3xl gap-3">
-        <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary text-[11px] font-bold">
-          A
-        </div>
-        <div className="min-w-0 flex-1">
-          {msg.type === "text" && <BotText msg={msg as TextMessage} />}
-          {msg.type === "timeline" && <Timeline msg={msg as TimelineMessage} />}
-          {msg.type === "input-card" && <InputCard msg={msg as InputCardMessage} />}
-          {msg.type === "download" && <DownloadCard msg={msg as DownloadMessage} />}
-          {msg.type === "status" && <StatusBubble msg={msg as StatusMessage} />}
-        </div>
-      </div>
-    </div>
-  );
-}
+  },
+  (prevProps, nextProps) => {
+    // Deep comparison is typically not needed if message references are immutable,
+    // but let's check id and timestamp/content since chat-store updates the message reference on patch.
+    // The chat-store uses spread to update messages which gives a new reference, so default memo handles it.
+    return prevProps.msg === nextProps.msg;
+  },
+);
 
 function BotText({ msg }: { msg: TextMessage }) {
   const [displayed, setDisplayed] = useState("");
