@@ -49,7 +49,15 @@ const colorMap = {
   },
 };
 
-export function StatCard({ title, value, subtitle, icon, trend, color = "violet", pulse }: StatCardProps) {
+export function StatCard({
+  title,
+  value,
+  subtitle,
+  icon,
+  trend,
+  color = "violet",
+  pulse,
+}: StatCardProps) {
   const c = colorMap[color];
   return (
     <div
@@ -62,18 +70,24 @@ export function StatCard({ title, value, subtitle, icon, trend, color = "violet"
 
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{title}</p>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            {title}
+          </p>
           <p className="mt-1.5 text-3xl font-bold text-foreground tabular-nums">
             {typeof value === "number" ? value.toLocaleString() : value}
           </p>
           {subtitle && <p className="mt-1 text-xs text-muted-foreground truncate">{subtitle}</p>}
           {trend && (
-            <p className={`mt-2 text-xs font-medium ${trend.value >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            <p
+              className={`mt-2 text-xs font-medium ${trend.value >= 0 ? "text-emerald-400" : "text-red-400"}`}
+            >
               {trend.value >= 0 ? "↑" : "↓"} {Math.abs(trend.value)}% {trend.label}
             </p>
           )}
         </div>
-        <div className={`shrink-0 ml-3 flex h-11 w-11 items-center justify-center rounded-xl ${c.icon}`}>
+        <div
+          className={`shrink-0 ml-3 flex h-11 w-11 items-center justify-center rounded-xl ${c.icon}`}
+        >
           {pulse && (
             <span className="absolute inline-flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-40" />
