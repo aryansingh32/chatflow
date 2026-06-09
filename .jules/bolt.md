@@ -1,0 +1,3 @@
+## 2024-06-09 - Effective Memoization of Dynamic Lists
+**Learning:** The frontend uses immutable chat state management (`chat-store.ts`), which enables highly effective memoization using `React.memo` for dynamic lists like the chat history. The immutable references ensure `React.memo` successfully prevents unnecessary re-renders when the thread changes or when new messages are added.
+**Action:** When working on rendering dynamic lists of components in `chatflow-interface`, leverage `React.memo` aggressively to avoid full list re-renders on state updates. Ensure the underlying state updates remain immutable to support this optimization pattern.
