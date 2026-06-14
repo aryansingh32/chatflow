@@ -167,8 +167,10 @@ export const adminApi = {
     return aGet<{ jobs: AdminJob[]; total: number }>(`/admin/jobs?${q}`);
   },
   getJob: (jobId: string) => aGet<{ job: AdminJob; runtime: unknown }>(`/admin/jobs/${jobId}`),
-  cancelJob: (jobId: string) => aPost<{ jobId: string; cancelled: boolean }>(`/admin/jobs/${jobId}/cancel`),
-  retryJob: (jobId: string) => aPost<{ jobId: string; retrying: boolean }>(`/admin/jobs/${jobId}/retry`),
+  cancelJob: (jobId: string) =>
+    aPost<{ jobId: string; cancelled: boolean }>(`/admin/jobs/${jobId}/cancel`),
+  retryJob: (jobId: string) =>
+    aPost<{ jobId: string; retrying: boolean }>(`/admin/jobs/${jobId}/retry`),
 
   // Users
   listUsers: (params?: { limit?: number; offset?: number }) => {
@@ -177,14 +179,22 @@ export const adminApi = {
     if (params?.offset) q.set("offset", String(params.offset));
     return aGet<{ users: AdminUser[]; total: number }>(`/admin/users?${q}`);
   },
-  getUser: (userId: string) => aGet<{ userId: string; jobs: AdminJob[]; profiles: unknown[]; files: unknown[] }>(`/admin/users/${userId}`),
+  getUser: (userId: string) =>
+    aGet<{ userId: string; jobs: AdminJob[]; profiles: unknown[]; files: unknown[] }>(
+      `/admin/users/${userId}`,
+    ),
   getUserPrompts: (userId: string, limit = 50) =>
     aGet<{ prompts: { job_id: string; prompt: string; status: string; started_at: string }[] }>(
-      `/admin/users/${userId}/prompts?limit=${limit}`
+      `/admin/users/${userId}/prompts?limit=${limit}`,
     ),
 
   // Workflows
-  listWorkflows: (params?: { siteId?: string; isActive?: string; limit?: number; offset?: number }) => {
+  listWorkflows: (params?: {
+    siteId?: string;
+    isActive?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
     const q = new URLSearchParams();
     if (params?.siteId) q.set("siteId", params.siteId);
     if (params?.isActive) q.set("isActive", params.isActive);
@@ -192,8 +202,10 @@ export const adminApi = {
     if (params?.offset) q.set("offset", String(params.offset));
     return aGet<{ workflows: AdminWorkflow[]; total: number }>(`/admin/workflows?${q}`);
   },
-  createWorkflow: (data: Partial<AdminWorkflow>) => aPost<{ workflow: AdminWorkflow }>("/admin/workflows", data),
-  updateWorkflow: (id: string, data: Partial<AdminWorkflow>) => aPut<{ workflow: AdminWorkflow }>(`/admin/workflows/${id}`, data),
+  createWorkflow: (data: Partial<AdminWorkflow>) =>
+    aPost<{ workflow: AdminWorkflow }>("/admin/workflows", data),
+  updateWorkflow: (id: string, data: Partial<AdminWorkflow>) =>
+    aPut<{ workflow: AdminWorkflow }>(`/admin/workflows/${id}`, data),
   deleteWorkflow: (id: string) => aDel<{ deleted: boolean }>(`/admin/workflows/${id}`),
 
   // Browsers
@@ -206,7 +218,9 @@ export const adminApi = {
   // Captcha
   pendingCaptchas: () => aGet<{ captchas: CaptchaItem[] }>("/admin/captcha/pending"),
   solveCaptcha: (captchaId: string, solution: string) =>
-    aPost<{ captchaId: string; solved: boolean }>(`/admin/captcha/${captchaId}/solve`, { solution }),
+    aPost<{ captchaId: string; solved: boolean }>(`/admin/captcha/${captchaId}/solve`, {
+      solution,
+    }),
 
   // Logs
   getLogs: (service = "api", limit = 200) =>
@@ -214,7 +228,12 @@ export const adminApi = {
 
   // Network
   networkStats: () =>
-    aGet<{ requestsTotal: number; requestsFailed: number; avgLatencyMs: number; timestamp: string }>("/admin/network/stats"),
+    aGet<{
+      requestsTotal: number;
+      requestsFailed: number;
+      avgLatencyMs: number;
+      timestamp: string;
+    }>("/admin/network/stats"),
 
   // Errors
   getErrors: (limit = 100) => aGet<{ errors: LogEntry[] }>(`/admin/errors?limit=${limit}`),
