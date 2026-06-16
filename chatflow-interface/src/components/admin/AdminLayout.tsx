@@ -87,7 +87,9 @@ export function AdminLayout({
                   : "text-muted-foreground hover:bg-accent/60 hover:text-foreground border-l-2 border-transparent"
               }`}
             >
-              <span className={`shrink-0 ${activeTab === item.id ? "text-violet-400" : "text-muted-foreground group-hover:text-foreground"}`}>
+              <span
+                className={`shrink-0 ${activeTab === item.id ? "text-violet-400" : "text-muted-foreground group-hover:text-foreground"}`}
+              >
                 {item.icon}
               </span>
               {!collapsed && <span className="truncate">{item.label}</span>}
@@ -121,9 +123,7 @@ export function AdminLayout({
           </div>
           <div className="flex items-center gap-3">
             {lastUpdated && (
-              <span className="text-[10px] text-muted-foreground">
-                Updated {lastUpdated}
-              </span>
+              <span className="text-[10px] text-muted-foreground">Updated {lastUpdated}</span>
             )}
             {onRefresh && (
               <button
