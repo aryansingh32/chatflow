@@ -19,7 +19,8 @@ export const Route = createFileRoute("/admin")({
       { title: "ChatFlow Admin — System Control Panel" },
       {
         name: "description",
-        content: "SaaS-level admin panel for full system control, user management, workflow CRUD, captcha solving, and monitoring.",
+        content:
+          "SaaS-level admin panel for full system control, user management, workflow CRUD, captcha solving, and monitoring.",
       },
     ],
   }),
@@ -38,19 +39,32 @@ function AdminPage() {
 
   const renderTab = () => {
     switch (tab) {
-      case "dashboard": return <Dashboard key={refreshKey} />;
-      case "jobs": return <JobsPanel key={refreshKey} />;
-      case "users": return <UsersPanel key={refreshKey} />;
-      case "workflows": return <WorkflowsPanel key={refreshKey} />;
-      case "sites": return <SitesPanel key={refreshKey} />;
-      case "captcha": return <CaptchaPanel key={refreshKey} />;
-      case "browsers": return <BrowsersPanel key={refreshKey} />;
-      case "logs": return <LogsPanel key={refreshKey} />;
-      case "errors": return <ErrorsPanel key={refreshKey} />;
-      case "network": return <NetworkPanel key={refreshKey} />;
-      case "metrics": return <MetricsPanel key={refreshKey} />;
-      case "security": return <SecurityPanel />;
-      default: return <Dashboard key={refreshKey} />;
+      case "dashboard":
+        return <Dashboard key={refreshKey} />;
+      case "jobs":
+        return <JobsPanel key={refreshKey} />;
+      case "users":
+        return <UsersPanel key={refreshKey} />;
+      case "workflows":
+        return <WorkflowsPanel key={refreshKey} />;
+      case "sites":
+        return <SitesPanel key={refreshKey} />;
+      case "captcha":
+        return <CaptchaPanel key={refreshKey} />;
+      case "browsers":
+        return <BrowsersPanel key={refreshKey} />;
+      case "logs":
+        return <LogsPanel key={refreshKey} />;
+      case "errors":
+        return <ErrorsPanel key={refreshKey} />;
+      case "network":
+        return <NetworkPanel key={refreshKey} />;
+      case "metrics":
+        return <MetricsPanel key={refreshKey} />;
+      case "security":
+        return <SecurityPanel />;
+      default:
+        return <Dashboard key={refreshKey} />;
     }
   };
 
