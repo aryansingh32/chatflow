@@ -1,0 +1,19 @@
+{
+  "name": "Aadhaar",
+  "domain": "myaadhaar.uidai.gov.in",
+  "category": "aadhaar",
+  "portalType": "aadhaar",
+  "entryUrl": "https://myaadhaar.uidai.gov.in/",
+  "description": "All workflows for Aadhaar",
+  "workflows": [
+    "aadhaar-download-aadhaar",
+    "aadhaar-update-name-dob",
+    "aadhaar-address-change",
+    "aadhaar-link-mobile",
+    "aadhaar-check-status",
+    "aadhaar-order-pvc",
+    "aadhaar-verify-aadhaar"
+  ],
+  "recordCommand": "npx playwright codegen https://myaadhaar.uidai.gov.in",
+  "createdAt": "2026-05-13T17:05:45.244Z"
+}

@@ -122,7 +122,7 @@
         "value": "text=/Update Aadhaar Online/i",
         "fallbackSelectors": [".service-card:has-text('Update')"]
       },
-      "timeout": 30000
+      "timeout": 60000
     },
     {
       "id": "click_update",
@@ -162,17 +162,7 @@
       "contextMessage": "I have uploaded the document. Please review the details, complete the payment, and let me know when it's done."
     }
   ],
-  "errorRecoveryPlan": [
-    {
-      "id": "refresh",
-      "action": "refresh"
-    },
-    {
-      "id": "wait",
-      "action": "wait",
-      "value": "2000"
-    }
-  ],
+  "errorRecoveryPlan": [],
   "isActive": true,
-  "version": 1
+  "version": 2
 }

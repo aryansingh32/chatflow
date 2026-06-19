@@ -1,0 +1,48 @@
+{
+  "id": "aadhaar-order-pvc",
+  "siteId": "aadhaar-myaadhaar",
+  "name": "Aadhaar — Order Pvc",
+  "category": "aadhaar",
+  "trigger": "order pvc aadhaar",
+  "triggerPhrases": [
+    "order pvc",
+    "aadhaar order pvc"
+  ],
+  "portalType": "aadhaar",
+  "entryUrl": "https://myaadhaar.uidai.gov.in/",
+  "pageUrlPatterns": [
+    "myaadhaar\\\\.uidai\\\\.gov\\\\.in"
+  ],
+  "requiredInputs": [],
+  "requiredFiles": [],
+  "instructions": "Workflow for order pvc on Aadhaar. Record with: npx playwright codegen https://myaadhaar.uidai.gov.in",
+  "starterActionPlan": [
+    {
+      "id": "s1",
+      "order": 1,
+      "action": "navigate",
+      "value": "https://myaadhaar.uidai.gov.in/",
+      "timeout": 30000,
+      "retries": 2,
+      "description": "Navigate to Aadhaar portal",
+      "humanDelay": true
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "timeout": 180000,
+      "contextMessage": "Please provide the required details to proceed.",
+      "description": "Collect user input"
+    }
+  ],
+  "errorRecoveryPlan": [],
+  "isActive": false,
+  "version": 1,
+  "metadata": {
+    "createdAt": "2026-05-13T17:05:45.246Z",
+    "status": "template",
+    "recordCommand": "npx playwright codegen https://myaadhaar.uidai.gov.in"
+  }
+}

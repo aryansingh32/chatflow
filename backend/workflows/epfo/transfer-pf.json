@@ -1,0 +1,48 @@
+{
+  "id": "epfo-transfer-pf",
+  "siteId": "epfo-unifiedportal-mem",
+  "name": "EPFO — Transfer Pf",
+  "category": "epfo",
+  "trigger": "transfer pf epfo",
+  "triggerPhrases": [
+    "transfer pf",
+    "epfo transfer pf"
+  ],
+  "portalType": "government",
+  "entryUrl": "https://unifiedportal-mem.epfindia.gov.in/",
+  "pageUrlPatterns": [
+    "unifiedportal-mem\\\\.epfindia\\\\.gov\\\\.in"
+  ],
+  "requiredInputs": [],
+  "requiredFiles": [],
+  "instructions": "Workflow for transfer pf on EPFO. Record with: npx playwright codegen https://unifiedportal-mem.epfindia.gov.in",
+  "starterActionPlan": [
+    {
+      "id": "s1",
+      "order": 1,
+      "action": "navigate",
+      "value": "https://unifiedportal-mem.epfindia.gov.in/",
+      "timeout": 30000,
+      "retries": 2,
+      "description": "Navigate to EPFO portal",
+      "humanDelay": true
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "timeout": 180000,
+      "contextMessage": "Please provide the required details to proceed.",
+      "description": "Collect user input"
+    }
+  ],
+  "errorRecoveryPlan": [],
+  "isActive": false,
+  "version": 1,
+  "metadata": {
+    "createdAt": "2026-05-13T17:05:45.250Z",
+    "status": "template",
+    "recordCommand": "npx playwright codegen https://unifiedportal-mem.epfindia.gov.in"
+  }
+}

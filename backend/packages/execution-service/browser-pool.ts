@@ -3,6 +3,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { EventEmitter } from 'events';
 import type { Session, ProxyConfig } from '../shared/types/index.js';
+import pidusage from 'pidusage';
 
 // Initialize playwright-extra with stealth plugin
 // playwright-extra wraps chromium but returns standard Playwright Browser instances
@@ -105,7 +106,8 @@ export class BrowserPool extends EventEmitter {
     sessionId: string,
     userId: string,
     session?: Partial<Session>,
-    proxy?: ProxyConfig
+    proxy?: ProxyConfig,
+    lightweight?: boolean
   ): Promise<ContextLease> {
     // Reuse existing context if available
     const existing = [...this.contexts.values()].find(
@@ -119,6 +121,7 @@ export class BrowserPool extends EventEmitter {
     // Find browser with capacity
     const browser = await this.findOrSpawnBrowser();
     const context = await this.createContext(browser.browser, session, proxy);
+    (context as any)._isLightweight = lightweight;
 
     const lease: ContextLease = {
       contextId: randomId(),
@@ -164,6 +167,13 @@ export class BrowserPool extends EventEmitter {
     this.contextLastUsed.delete(contextId);
   }
 
+  async releaseContextBySessionId(sessionId: string, saveSession = true): Promise<void> {
+    const existing = [...this.contexts.values()].find((c) => c.sessionId === sessionId);
+    if (existing) {
+      await this.releaseContext(existing.contextId, saveSession);
+    }
+  }
+
   async getOrCreatePage(contextId: string): Promise<Page> {
     const lease = this.contexts.get(contextId);
     if (!lease) throw new Error(`Context ${contextId} not found in pool`);
@@ -173,7 +183,9 @@ export class BrowserPool extends EventEmitter {
     }
 
     const page = await lease.context.newPage();
-    await this.applyStealthSettings(page);
+    if (!(lease.context as any)._isLightweight) {
+      await this.applyStealthSettings(page);
+    }
     lease.page = page;
     return page;
   }
@@ -245,12 +257,17 @@ export class BrowserPool extends EventEmitter {
       ignoreHTTPSErrors: false,
     };
 
-    if (proxy) {
-      contextOptions.proxy = {
+    if (proxy && proxy.host && proxy.port && proxy.protocol) {
+      const proxyOpts: { server: string; username?: string; password?: string } = {
         server: `${proxy.protocol}://${proxy.host}:${proxy.port}`,
-        username: proxy.username,
-        password: proxy.password,
       };
+      if (typeof proxy.username === 'string' && proxy.username) {
+        proxyOpts.username = proxy.username;
+      }
+      if (typeof proxy.password === 'string' && proxy.password) {
+        proxyOpts.password = proxy.password;
+      }
+      contextOptions.proxy = proxyOpts;
     }
 
     const context = await browser.newContext(contextOptions);
@@ -352,6 +369,23 @@ export class BrowserPool extends EventEmitter {
       for (const [id, browser] of this.browsers) {
         const age = now - browser.createdAt.getTime();
 
+        // Memory check > 3GB
+        const pid = (browser.browser as any).process?.()?.pid;
+        if (pid) {
+          try {
+            const stats = await pidusage(pid);
+            if (stats.memory > 3 * 1024 * 1024 * 1024) {
+              console.warn(`[BrowserPool] Browser ${id} exceeded 3GB memory usage (${Math.round(stats.memory / 1024 / 1024)}MB). Killing.`);
+              browser.isHealthy = false;
+              await browser.browser.close().catch(() => {});
+              this.browsers.delete(id);
+              continue;
+            }
+          } catch (e) {
+            // pidusage fails if process is dead
+          }
+        }
+
         // Restart browsers that are too old
         if (age > this.config.browserMaxAgeMs && browser.contextCount === 0) {
           console.log(`[BrowserPool] Retiring aged browser ${id}`);
@@ -361,7 +395,7 @@ export class BrowserPool extends EventEmitter {
         }
       }
 
-      // Ensure minimum browser count
+      // Ensure minimum browser count (if minBrowsers > 0)
       const healthy = [...this.browsers.values()].filter((b) => b.isHealthy).length;
       if (healthy < this.config.minBrowsers) {
         const toSpawn = this.config.minBrowsers - healthy;

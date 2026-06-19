@@ -12,6 +12,9 @@ import { NetworkPanel } from "@/components/admin/NetworkPanel";
 import { MetricsPanel } from "@/components/admin/MetricsPanel";
 import { SitesPanel } from "@/components/admin/SitesPanel";
 import { SecurityPanel } from "@/components/admin/SecurityPanel";
+import { ObservabilityCommandCenter } from "@/components/admin/ObservabilityCommandCenter";
+import { SessionIntelPanel } from "@/components/admin/SessionIntelPanel";
+import { DebugCopilotPanel } from "@/components/admin/DebugCopilotPanel";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -27,7 +30,7 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminPage() {
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState("observability");
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
@@ -38,6 +41,9 @@ function AdminPage() {
 
   const renderTab = () => {
     switch (tab) {
+      case "observability": return <ObservabilityCommandCenter key={refreshKey} />;
+      case "sessions": return <SessionIntelPanel key={refreshKey} />;
+      case "copilot": return <DebugCopilotPanel key={refreshKey} />;
       case "dashboard": return <Dashboard key={refreshKey} />;
       case "jobs": return <JobsPanel key={refreshKey} />;
       case "users": return <UsersPanel key={refreshKey} />;

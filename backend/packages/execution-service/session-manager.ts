@@ -170,7 +170,9 @@ export class SessionManager {
       lastUsed:        row.last_used,
       cookies:         row.cookies ?? [],
       localStorage:    row.local_storage ?? {},
-      proxy:           row.proxy_id ? { id: row.proxy_id } as any : undefined,
+      // Don't construct a partial proxy from just proxy_id — it lacks host/port/protocol
+      // and would crash Playwright's newContext. Proxy will be assigned fresh if needed.
+      proxy:           undefined,
       browserContextId: row.browser_context_id,
       isActive:        row.is_active,
     };

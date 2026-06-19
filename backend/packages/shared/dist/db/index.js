@@ -1,11 +1,13 @@
 import pg from 'pg';
 import { createClient } from 'redis';
+import { createLogger } from '../logger/index.js';
 // ============================================================
 // DATABASE & CACHE LAYER
 // Postgres for structured data, Redis for fast cache + sessions.
 // Full schema migrations run on startup.
 // ============================================================
 const { Pool } = pg;
+const logger = createLogger('shared-db');
 // ─── Postgres ────────────────────────────────────────────────
 let pgPool = null;
 export function getPgPool() {
@@ -21,7 +23,7 @@ export function getPgPool() {
             connectionTimeoutMillis: 5_000,
         });
         pgPool.on('error', (err) => {
-            console.error('[DB] Unexpected pool error:', err.message);
+            logger.error('postgres:pool-error', err);
         });
     }
     return pgPool;
@@ -53,10 +55,10 @@ export async function getRedisClient() {
             : `redis://${process.env.REDIS_HOST ?? 'localhost'}:${process.env.REDIS_PORT ?? '6379'}`;
         redisClient = createClient({ url });
         redisClient.on('error', (err) => {
-            console.error('[Redis] Client error:', err.message);
+            logger.error('redis:client-error', err);
         });
         await redisClient.connect();
-        console.log('[Redis] Connected');
+        logger.info('redis:connected');
     }
     return redisClient;
 }
@@ -77,7 +79,7 @@ export async function cacheSet(key, value, ttlSeconds = 1800) {
         await redis.setEx(key, ttlSeconds, JSON.stringify(value));
     }
     catch (err) {
-        console.error('[Cache] Set failed:', err.message);
+        logger.error('cache:set-failed', err, { key, ttlSeconds });
     }
 }
 export async function cacheDelete(key) {
@@ -94,6 +96,7 @@ export const CacheKeys = {
     siteGraph: (siteId) => `graph:${siteId}`,
     flowCache: (siteId, taskHash) => `flow:${siteId}:${taskHash}`,
     jobRuntime: (jobId) => `job-runtime:${jobId}`,
+    jobCancel: (jobId) => `job-cancel:${jobId}`,
     proxyPool: () => 'proxy:pool',
 };
 // ─── Schema Migrations ───────────────────────────────────────
@@ -200,22 +203,28 @@ CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
 -- ── Site Workflows / Custom Mapping Instructions ────────────
 CREATE TABLE IF NOT EXISTS site_workflows (
   id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workflow_key          TEXT UNIQUE,
   site_id               UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  category              TEXT DEFAULT 'general',
   name                  TEXT NOT NULL,
   trigger               TEXT NOT NULL,
+  trigger_phrases       TEXT[] DEFAULT '{}',
   portal_type           TEXT CHECK (portal_type IN ('government', 'jobs', 'education', 'banking', 'general', 'aadhaar')),
   site_section          TEXT,
   entry_url             TEXT,
   page_url              TEXT,
   page_url_pattern      TEXT,
+  page_url_patterns     TEXT[] DEFAULT '{}',
   required_inputs       TEXT[] DEFAULT '{}',
   required_files        TEXT[] DEFAULT '{}',
   instructions          TEXT NOT NULL,
   default_profile_name  TEXT,
   starter_action_plan   JSONB DEFAULT '[]',
+  error_recovery_plan   JSONB DEFAULT '[]',
   version               INTEGER DEFAULT 1,
   is_active             BOOLEAN DEFAULT true,
   completion_artifact   TEXT,
+  metadata              JSONB DEFAULT '{}',
   created_at            TIMESTAMPTZ DEFAULT NOW(),
   updated_at            TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (site_id, name)
@@ -226,11 +235,36 @@ ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS site_section TEXT;
 ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS entry_url TEXT;
 ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS page_url TEXT;
 ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS page_url_pattern TEXT;
+ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS workflow_key TEXT;
+ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'general';
+ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS trigger_phrases TEXT[] DEFAULT '{}';
+ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS page_url_patterns TEXT[] DEFAULT '{}';
 ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS required_inputs TEXT[] DEFAULT '{}';
 ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS required_files TEXT[] DEFAULT '{}';
+ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS error_recovery_plan JSONB DEFAULT '[]';
 ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;
 ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
 ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS completion_artifact TEXT;
+ALTER TABLE site_workflows ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+UPDATE site_workflows
+SET workflow_key = COALESCE(workflow_key, CONCAT(site_id::text, ':', lower(regexp_replace(name, '[^a-zA-Z0-9]+', '-', 'g'))))
+WHERE workflow_key IS NULL;
+UPDATE site_workflows
+SET category = COALESCE(NULLIF(category, ''), portal_type, 'general')
+WHERE category IS NULL OR category = '';
+UPDATE site_workflows
+SET trigger_phrases = CASE
+  WHEN COALESCE(array_length(trigger_phrases, 1), 0) = 0 THEN ARRAY[trigger]
+  ELSE trigger_phrases
+END;
+UPDATE site_workflows
+SET page_url_patterns = CASE
+  WHEN COALESCE(array_length(page_url_patterns, 1), 0) = 0 AND page_url_pattern IS NOT NULL THEN ARRAY[page_url_pattern]
+  WHEN COALESCE(array_length(page_url_patterns, 1), 0) = 0 THEN '{}'
+  ELSE page_url_patterns
+END;
+CREATE INDEX IF NOT EXISTS idx_site_workflows_workflow_key ON site_workflows(workflow_key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_site_workflows_workflow_key_unique ON site_workflows(workflow_key);
 
 -- ── User Files (uploads/download artifacts) ─────────────────
 CREATE TABLE IF NOT EXISTS user_files (
@@ -289,6 +323,8 @@ CREATE TABLE IF NOT EXISTS job_logs (
   job_id                TEXT NOT NULL,
   type                  TEXT NOT NULL,
   site_id               UUID REFERENCES sites(id) ON DELETE SET NULL,
+  user_id               TEXT,
+  session_id            TEXT,
   status                TEXT DEFAULT 'pending',
   started_at            TIMESTAMPTZ DEFAULT NOW(),
   completed_at          TIMESTAMPTZ,
@@ -298,10 +334,22 @@ CREATE TABLE IF NOT EXISTS job_logs (
   selector_fallback_cnt INTEGER DEFAULT 0,
   retry_count           INTEGER DEFAULT 0,
   result                JSONB,
-  error                 TEXT
+  error                 TEXT,
+  updated_at            TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE job_logs ADD COLUMN IF NOT EXISTS user_id TEXT;
+ALTER TABLE job_logs ADD COLUMN IF NOT EXISTS session_id TEXT;
+ALTER TABLE job_logs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS idx_job_logs_job_id ON job_logs(job_id);
 CREATE INDEX IF NOT EXISTS idx_job_logs_status ON job_logs(status);
+CREATE INDEX IF NOT EXISTS idx_job_logs_user_id ON job_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_job_logs_session_id ON job_logs(session_id);
+CREATE INDEX IF NOT EXISTS idx_job_logs_started_at ON job_logs(started_at);
+
+-- ── File Indexes ─────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_user_files_created_at ON user_files(created_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_last_used ON sessions(last_used);
+
 
 -- ── Change Log ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS change_log (
@@ -315,15 +363,61 @@ CREATE TABLE IF NOT EXISTS change_log (
 );
 CREATE INDEX IF NOT EXISTS idx_change_log_page ON change_log(page_id);
 
+-- ── Observability: unified client + server events (session replay source) ──
+CREATE TABLE IF NOT EXISTS observability_events (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ts           TIMESTAMPTZ DEFAULT NOW(),
+  source       TEXT NOT NULL CHECK (source IN ('client', 'server', 'security')),
+  event_type   TEXT NOT NULL,
+  user_id      TEXT,
+  session_id   TEXT,
+  trace_id     TEXT,
+  span_id      TEXT,
+  request_id   TEXT,
+  route        TEXT,
+  release      TEXT,
+  git_sha      TEXT,
+  ip_hash      TEXT,
+  payload      JSONB DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_obs_events_ts ON observability_events(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_obs_events_session ON observability_events(session_id, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_obs_events_user ON observability_events(user_id, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_obs_events_type ON observability_events(event_type, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_obs_events_trace ON observability_events(trace_id);
+
+-- ── Error intelligence (enriched failures for admin + AI copilot) ─────────
+CREATE TABLE IF NOT EXISTS error_reports (
+  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ts            TIMESTAMPTZ DEFAULT NOW(),
+  source        TEXT NOT NULL DEFAULT 'api',
+  fingerprint   TEXT,
+  message       TEXT NOT NULL,
+  stack         TEXT,
+  user_id       TEXT,
+  session_id    TEXT,
+  request_id    TEXT,
+  trace_id      TEXT,
+  route         TEXT,
+  method        TEXT,
+  http_status   INTEGER,
+  severity      TEXT DEFAULT 'error',
+  context       JSONB DEFAULT '{}',
+  resolved      BOOLEAN DEFAULT false
+);
+CREATE INDEX IF NOT EXISTS idx_error_reports_ts ON error_reports(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_error_reports_fingerprint ON error_reports(fingerprint, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_error_reports_user ON error_reports(user_id, ts DESC);
+
 `;
 export async function runMigrations() {
     const pool = getPgPool();
     try {
         await pool.query(SCHEMA_SQL);
-        console.log('[DB] ✅ Migrations complete — all tables ready');
+        logger.info('migrations:complete');
     }
     catch (err) {
-        console.error('[DB] Migration failed:', err.message);
+        logger.error('migrations:failed', err);
         throw err;
     }
 }

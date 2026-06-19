@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
 import {
   Outlet,
   Link,
@@ -8,6 +9,8 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { createLogger } from "@/lib/logger";
+import { TelemetryProvider } from "@/components/TelemetryProvider";
+import { trackClientError } from "@/lib/client-telemetry";
 
 import appCss from "../styles.css?url";
 
@@ -38,6 +41,10 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   logger.error("route:error-boundary", error);
   const router = useRouter();
+
+  useEffect(() => {
+    trackClientError(error, { boundary: "root-route" });
+  }, [error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -136,7 +143,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <TelemetryProvider>
+        <Outlet />
+      </TelemetryProvider>
     </QueryClientProvider>
   );
 }

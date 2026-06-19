@@ -11,8 +11,27 @@ import { getAllQueueStats } from '../shared/queue/index.js';
 import { register as promRegister } from 'prom-client';
 import { createLogger } from '../shared/logger/index.js';
 import os from 'os';
+import fs from 'fs';
 
 const logger = createLogger('admin-routes');
+
+const JOB_ERROR_SQL = `
+  COALESCE(
+    NULLIF(error, ''),
+    result->>'error',
+    (
+      SELECT step->>'error'
+      FROM jsonb_array_elements(
+        CASE
+          WHEN jsonb_typeof(result->'steps') = 'array' THEN result->'steps'
+          ELSE '[]'::jsonb
+        END
+      ) AS step
+      WHERE step ? 'error' AND NULLIF(step->>'error', '') IS NOT NULL
+      LIMIT 1
+    )
+  ) AS error
+`;
 
 // ── Admin Auth Middleware ──────────────────────────────────
 async function adminAuth(req: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -154,7 +173,7 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
 
     try {
       const { rows } = await pool.query(
-        `SELECT * FROM job_logs ${where} ORDER BY started_at DESC LIMIT $${pi} OFFSET $${pi+1}`,
+        `SELECT *, ${JOB_ERROR_SQL} FROM job_logs ${where} ORDER BY started_at DESC LIMIT $${pi} OFFSET $${pi+1}`,
         params
       );
       const countRes = await pool.query(
@@ -174,13 +193,35 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     const pool = getPgPool();
     try {
       const [jobRes, runtimeRes] = await Promise.all([
-        pool.query(`SELECT * FROM job_logs WHERE job_id = $1`, [jobId]),
+        pool.query(`SELECT *, ${JOB_ERROR_SQL} FROM job_logs WHERE job_id = $1 ORDER BY started_at DESC LIMIT 1`, [jobId]),
         getRedisClient().then(r => r.get(CacheKeys.jobRuntime(jobId))).catch(() => null),
       ]);
-      if (!jobRes.rows.length) return reply.status(404).send({ error: 'Job not found' });
+      if (!jobRes.rows.length && !runtimeRes) return reply.status(404).send({ error: 'Job not found' });
+      
+      const parsedRuntime = runtimeRes ? JSON.parse(runtimeRes) : null;
+      
+      let jobData = jobRes.rows[0];
+      if (!jobData && parsedRuntime) {
+        jobData = {
+          job_id: jobId,
+          user_id: parsedRuntime.userId,
+          session_id: parsedRuntime.sessionId,
+          site_id: parsedRuntime.siteId,
+          type: 'execute',
+          status: parsedRuntime.status,
+          started_at: parsedRuntime.createdAt,
+          success: false,
+          error: parsedRuntime.error ?? null,
+          result: {}
+        };
+      }
+      if (jobData && !jobData.error && parsedRuntime?.error) {
+        jobData = { ...jobData, error: parsedRuntime.error };
+      }
+
       return reply.send({
-        job: jobRes.rows[0],
-        runtime: runtimeRes ? JSON.parse(runtimeRes) : null,
+        job: jobData,
+        runtime: parsedRuntime,
       });
     } catch (e) {
       return reply.status(500).send({ error: 'Failed to fetch job' });
@@ -248,7 +289,7 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     try {
       const [jobs, profiles, files] = await Promise.all([
         pool.query(`
-          SELECT job_id, type, status, started_at, completed_at, error_message
+          SELECT job_id, type, status, started_at, completed_at, ${JOB_ERROR_SQL}
           FROM job_logs WHERE user_id = $1 ORDER BY started_at DESC LIMIT 50
         `, [userId]),
         pool.query(`SELECT profile_name, created_at, updated_at FROM user_memory_profiles WHERE user_id = $1`, [userId]).catch(() => ({ rows: [] })),
@@ -397,6 +438,29 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     } catch (e: any) {
       return reply.status(500).send({ error: e.message });
     }
+  });
+
+  // ── Webhook Target for n8n Background Cleanup ───────────
+  app.delete('/admin/files/cleanup', { preHandler: adminAuth }, async (req, reply) => {
+    // This endpoint is meant to be called by n8n scheduled workflows
+    const pool = getPgPool();
+    // Delete files older than 30 minutes
+    const { rows } = await pool.query(`
+      SELECT id, storage_path FROM user_files 
+      WHERE created_at < NOW() - INTERVAL '30 minutes'
+    `);
+    
+    let deletedCount = 0;
+    for (const file of rows) {
+      try {
+        await fs.promises.unlink(file.storage_path).catch(() => {});
+        await pool.query(`DELETE FROM user_files WHERE id = $1`, [file.id]);
+        deletedCount++;
+      } catch (e) {
+        logger.error(`Failed to cleanup file ${file.id}`, e);
+      }
+    }
+    return reply.send({ success: true, cleanedFiles: deletedCount });
   });
 
   // ── Cache Control ───────────────────────────────────────

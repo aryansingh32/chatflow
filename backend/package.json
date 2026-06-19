@@ -18,6 +18,12 @@
     "dev:worker": "node --import tsx packages/execution-service/worker.ts",
     "dev:scheduler": "tsx packages/scheduler-service/scheduler.ts",
     "workflow:load": "node --import tsx packages/shared/workflow-loader.ts",
+    "workflow:record": "node --import tsx tools/workflow-cli.ts record",
+    "workflow:convert": "node --import tsx tools/workflow-cli.ts convert",
+    "workflow:scaffold": "node --import tsx tools/workflow-cli.ts scaffold",
+    "workflow:scaffold-all": "node --import tsx tools/workflow-cli.ts scaffold --all",
+    "workflow:list": "node --import tsx tools/workflow-cli.ts list",
+    "workflow:validate": "node --import tsx tools/workflow-cli.ts validate",
     "seed:test:aadhaar": "node --import tsx scripts/seed-and-test-aadhaar-workflow.ts",
     "test": "vitest run",
     "test:backend": "node scripts/test-backend.mjs",
@@ -27,8 +33,9 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
+    "@types/pidusage": "^2.0.5",
     "concurrently": "^9.2.1",
-    "tsx": "^4.16.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.5.0",
     "vitest": "^4.1.6"
   },
@@ -36,6 +43,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "pidusage": "^4.0.1"
   }
 }

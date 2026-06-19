@@ -120,15 +120,49 @@ async function updateRuntime(job: ExecuteJob, patch: Partial<JobRuntimeState>) {
   );
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message?.trim() || error.name || 'Unknown execution worker error';
+  }
+  if (typeof error === 'string') {
+    return error.trim() || 'Unknown execution worker error';
+  }
+  try {
+    const serialized = JSON.stringify(error);
+    return serialized && serialized !== '{}' ? serialized : 'Unknown execution worker error';
+  } catch {
+    return String(error) || 'Unknown execution worker error';
+  }
+}
+
+async function logUnhandledExecutionFailure(job: ExecuteJob, error: string) {
+  const pool = getPgPool();
+  await pool.query(`
+    INSERT INTO job_logs (
+      job_id, user_id, session_id, type, site_id, status, completed_at, duration_ms,
+      success, ai_call_count, selector_fallback_cnt, retry_count, result, error
+    ) VALUES ($1, $2, $3, 'execute', $4, 'failed', NOW(), 0, false, 0, 0, 0, $5, $6)
+  `, [
+    job.id,
+    job.userId,
+    job.payload.sessionId,
+    job.payload.siteId,
+    JSON.stringify({ steps: [], source: 'worker-catch' }),
+    error,
+  ]);
+}
+
 async function logDryRunResult(job: ExecuteJob, pauseSteps: Array<{ id: string; expectedInput: string | null; description: string }>) {
   const pool = getPgPool();
   await pool.query(`
     INSERT INTO job_logs (
-      job_id, type, site_id, status, completed_at, duration_ms,
+      job_id, user_id, session_id, type, site_id, status, completed_at, duration_ms,
       success, ai_call_count, selector_fallback_cnt, retry_count, result
-    ) VALUES ($1, 'execute', $2, 'completed', NOW(), 0, true, 0, 0, 0, $3)
+    ) VALUES ($1, $2, $3, 'execute', $4, 'completed', NOW(), 0, true, 0, 0, 0, $5)
   `, [
     job.id,
+    job.userId,
+    job.payload.sessionId,
     job.payload.siteId,
     JSON.stringify({
       mode: 'dry-run',
@@ -172,8 +206,35 @@ const crawlWorker = createWorker<CrawlJob>('crawl', async (job) => {
 // Execution Worker
 const executeWorker = createWorker<ExecuteJob>('execute', async (job) => {
   const end = jobDuration.startTimer({ type: 'execute' });
+  let warningTimer: NodeJS.Timeout | undefined;
+  let killTimer: NodeJS.Timeout | undefined;
+
   try {
     await updateRuntime(job, { status: 'running' });
+
+    const redis = await getRedisClient();
+
+    // 10-minute warning
+    warningTimer = setTimeout(async () => {
+      try {
+        await redis.publish('chat:message', JSON.stringify({
+          sessionId: job.payload.sessionId,
+          message: '⚠️ Your session has been inactive for 10 minutes. It will automatically close in 5 minutes if no action is taken.'
+        }));
+      } catch {}
+    }, 10 * 60 * 1000);
+
+    // 15-minute hard kill
+    killTimer = setTimeout(async () => {
+      try {
+        await redis.publish('chat:message', JSON.stringify({
+          sessionId: job.payload.sessionId,
+          message: '🛑 Session expired due to 15 minutes of inactivity. Please start a new task.'
+        }));
+        await redis.setEx(`job-cancel:${job.id}`, 86400, '1');
+        await redis.publish(`job:cancel:${job.id}`, 'cancel');
+      } catch {}
+    }, 15 * 60 * 1000);
 
     if (!job.payload.actionPlan) {
       const { snapshot, elements } = await buildPlanningSnapshot(job.payload.siteId);
@@ -238,9 +299,22 @@ const executeWorker = createWorker<ExecuteJob>('execute', async (job) => {
     return result;
   } catch (err) {
     jobCounter.inc({ type: 'execute', status: 'failure' });
+    const error = getErrorMessage(err);
+    await updateRuntime(job, { status: 'failed', error }).catch((runtimeError) => {
+      console.error('[Worker] Failed to update runtime after execute error:', runtimeError);
+    });
+    await logUnhandledExecutionFailure(job, error).catch((logError) => {
+      console.error('[Worker] Failed to log execute error:', logError);
+    });
     throw err;
   } finally {
+    if (warningTimer) clearTimeout(warningTimer);
+    if (killTimer) clearTimeout(killTimer);
     end();
+    if (!job.payload.dryRun) {
+      await getBrowserPool().releaseContextBySessionId(job.payload.sessionId, false).catch(() => {});
+      activeBrowsers.set(getBrowserPool().getStats().activeContexts);
+    }
   }
 }, { concurrency: 5 });
 
@@ -327,14 +401,32 @@ async function main() {
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
-    console.log(`\n[Worker] ${signal} received, draining...`);
-    await Promise.allSettled([
+    console.log(`\n[Worker] ${signal} received, stopping new jobs & draining (max 30s)...`);
+    
+    const drainPromise = Promise.allSettled([
       crawlWorker.close(),
       executeWorker.close(),
       remapWorker.close(),
       aiPlanWorker.close(),
     ]);
-    await pool.shutdown();
+
+    // Timeout after 30 seconds
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 30_000));
+
+    await Promise.race([drainPromise, timeoutPromise]);
+
+    console.log(`[Worker] Draining finished or timed out. Shutting down browser pool...`);
+    await pool.shutdown().catch(() => {});
+
+    console.log(`[Worker] Closing database connections...`);
+    const { getPgPool, getRedisClient } = await import('../shared/db/index.js');
+    await getPgPool().end().catch(() => {});
+    const redis = await getRedisClient().catch(() => null);
+    if (redis) {
+      await redis.quit().catch(() => {});
+    }
+
+    console.log('Shutdown complete');
     process.exit(0);
   };
 

@@ -1,4 +1,5 @@
 import { Queue, Worker } from 'bullmq';
+import { createLogger } from '../logger/index.js';
 // ============================================================
 // QUEUE LAYER — BullMQ
 // Typed job queues with priority support.
@@ -49,14 +50,14 @@ export async function enqueueJob(job) {
         jobId: job.id,
         priority: PRIORITY_MAP[job.priority] ?? 5,
     });
-    console.log(`[Queue] Enqueued ${job.type} job ${job.id} (priority: ${job.priority})`);
+    logger.info('job:enqueued', { queue: job.type, jobId: job.id, priority: job.priority });
     return bullJob.id ?? job.id;
 }
 // ─── Create Worker ───────────────────────────────────────────
 export function createWorker(queueName, handler, options = {}) {
     const worker = new Worker(queueName, async (bullJob) => {
         const jobData = bullJob.data;
-        console.log(`[Worker:${queueName}] Processing job ${jobData.id}`);
+        logger.info('worker:processing', { queueName, jobId: jobData.id });
         return handler(jobData);
     }, {
         connection: getRedisConnection(),
@@ -64,18 +65,26 @@ export function createWorker(queueName, handler, options = {}) {
         ...options,
     });
     worker.on('completed', (job) => {
-        console.log(`[Worker:${queueName}] ✅ Completed: ${job?.id}`);
+        logger.info('worker:completed', { queueName, jobId: job?.id });
     });
     worker.on('failed', (job, err) => {
-        console.error(`[Worker:${queueName}] ❌ Failed: ${job?.id} — ${err.message}`);
+        logger.error('worker:failed', err, { queueName, jobId: job?.id });
     });
     worker.on('error', (err) => {
-        console.error(`[Worker:${queueName}] Error:`, err.message);
+        logger.error('worker:error', err, { queueName });
     });
-    console.log(`[Queue] Worker registered for "${queueName}" (concurrency: ${options.concurrency ?? 5})`);
+    logger.info('worker:registered', { queueName, concurrency: options.concurrency ?? 5 });
     return worker;
 }
 // ─── Queue Stats ─────────────────────────────────────────────
+export async function getJobPosition(jobType, jobId) {
+    const queue = getQueue(jobType);
+    const waitingJobs = await queue.getWaiting();
+    const index = waitingJobs.findIndex((j) => j.id === jobId);
+    if (index === -1)
+        return null;
+    return index + 1; // 1-based position
+}
 export async function getAllQueueStats() {
     const stats = {};
     for (const name of QUEUE_NAMES) {
@@ -96,4 +105,5 @@ export async function closeAllQueues() {
     await Promise.all([...queues.values()].map((q) => q.close()));
     queues.clear();
 }
+const logger = createLogger('shared-queue');
 //# sourceMappingURL=index.js.map

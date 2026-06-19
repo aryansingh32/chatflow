@@ -1,4 +1,4 @@
-import { getPgPool } from '../shared/db/index.js';
+import { getPgPool, cacheGet, cacheSet, cacheDelete } from '../shared/db/index.js';
 import type { ActionStep, SiteWorkflow } from '../shared/types/index.js';
 
 const WORKFLOW_SELECT = `SELECT
@@ -69,15 +69,24 @@ export class SiteWorkflowService {
   }
 
   async listAll(): Promise<SiteWorkflow[]> {
+    const cacheKey = 'workflows:all';
+    const cached = await cacheGet<SiteWorkflow[]>(cacheKey);
+    if (cached) return cached;
+
     const pool = getPgPool();
     const { rows } = await pool.query(
       `${WORKFLOW_SELECT}
        ORDER BY updated_at DESC, name ASC`
     );
+    await cacheSet(cacheKey, rows, 300); // 5 mins
     return rows;
   }
 
   async listForSite(siteId: string): Promise<SiteWorkflow[]> {
+    const cacheKey = `workflows:site:${siteId}`;
+    const cached = await cacheGet<SiteWorkflow[]>(cacheKey);
+    if (cached) return cached;
+
     const pool = getPgPool();
     const { rows } = await pool.query(
       `${WORKFLOW_SELECT}
@@ -86,6 +95,7 @@ export class SiteWorkflowService {
       [siteId]
     );
 
+    await cacheSet(cacheKey, rows, 300); // 5 mins
     return rows;
   }
 
@@ -218,13 +228,20 @@ export class SiteWorkflowService {
       ]
     );
 
+    await cacheDelete('workflows:all');
+    await cacheDelete(`workflows:site:${input.siteId}`);
     return rows[0];
   }
 
   async deleteWorkflow(workflowId: string): Promise<boolean> {
     const pool = getPgPool();
-    const result = await pool.query(`DELETE FROM site_workflows WHERE id = $1`, [workflowId]);
-    return (result.rowCount ?? 0) > 0;
+    const { rows } = await pool.query(`DELETE FROM site_workflows WHERE id = $1 RETURNING site_id`, [workflowId]);
+    if (rows.length > 0) {
+      await cacheDelete('workflows:all');
+      await cacheDelete(`workflows:site:${rows[0].site_id}`);
+      return true;
+    }
+    return false;
   }
 }
 

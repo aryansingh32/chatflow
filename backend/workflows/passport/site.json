@@ -1,0 +1,17 @@
+{
+  "name": "Passport",
+  "domain": "passportindia.gov.in",
+  "category": "passport",
+  "portalType": "government",
+  "entryUrl": "https://passportindia.gov.in/",
+  "description": "All workflows for Passport",
+  "workflows": [
+    "passport-apply-new-passport",
+    "passport-renew-passport",
+    "passport-check-status",
+    "passport-appointment-booking",
+    "passport-tatkaal-passport"
+  ],
+  "recordCommand": "npx playwright codegen https://passportindia.gov.in",
+  "createdAt": "2026-05-13T17:05:45.248Z"
+}

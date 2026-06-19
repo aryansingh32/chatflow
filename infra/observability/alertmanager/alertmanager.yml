@@ -1,0 +1,11 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'null'
+
+receivers:
+  - name: 'null'
+
+# Add real receivers (Slack, Discord, Telegram, email, PagerDuty) using:
+# https://prometheus.io/docs/alerting/latest/configuration/

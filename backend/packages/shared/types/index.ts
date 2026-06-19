@@ -39,6 +39,7 @@ export interface ExecuteJob extends BaseJob {
     sessionId: string;
     useCache: boolean;
     dryRun?: boolean;
+    lightweight?: boolean;
   };
 }
 
@@ -194,7 +195,25 @@ export type ActionType =
   | 'screenshot'
   | 'extract'
   | 'payment'
-  | 'retryLoop';
+  | 'retryLoop'
+  | 'clickCaptcha'
+  // New universal actions
+  | 'pressKey'
+  | 'doubleClick'
+  | 'hover'
+  | 'rightClick'
+  | 'clearField'
+  | 'switchTab'
+  | 'closeTab'
+  | 'acceptDialog'
+  | 'dismissDialog'
+  | 'assertText'
+  | 'assertURL'
+  | 'iframe'
+  | 'loop'
+  | 'dragDrop'
+  | 'goBack'
+  | 'goForward';
 
 // ─── Execution Results ───────────────────────────────────────
 
@@ -326,6 +345,8 @@ export interface JobRuntimeState {
   status: 'queued' | 'running' | 'paused' | 'completed' | 'failed';
   activeStepId?: string;
   lastInputType?: 'otp' | 'upi_id' | 'captcha' | 'clickCaptcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password' | 'file';
+  error?: string;
+  result?: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -353,7 +374,7 @@ export interface SiteWorkflow {
   version?: number;
   isActive?: boolean;
   completionArtifact?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> & { lightweight?: boolean };
   createdAt: Date;
   updatedAt: Date;
 }

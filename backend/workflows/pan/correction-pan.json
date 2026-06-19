@@ -1,0 +1,48 @@
+{
+  "id": "pan-correction-pan",
+  "siteId": "pan-eportal",
+  "name": "PAN — Correction Pan",
+  "category": "pan",
+  "trigger": "correction pan pan",
+  "triggerPhrases": [
+    "correction pan",
+    "pan correction pan"
+  ],
+  "portalType": "government",
+  "entryUrl": "https://eportal.incometax.gov.in/",
+  "pageUrlPatterns": [
+    "eportal\\\\.incometax\\\\.gov\\\\.in"
+  ],
+  "requiredInputs": [],
+  "requiredFiles": [],
+  "instructions": "Workflow for correction pan on PAN. Record with: npx playwright codegen https://eportal.incometax.gov.in",
+  "starterActionPlan": [
+    {
+      "id": "s1",
+      "order": 1,
+      "action": "navigate",
+      "value": "https://eportal.incometax.gov.in/",
+      "timeout": 30000,
+      "retries": 2,
+      "description": "Navigate to PAN portal",
+      "humanDelay": true
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "timeout": 180000,
+      "contextMessage": "Please provide the required details to proceed.",
+      "description": "Collect user input"
+    }
+  ],
+  "errorRecoveryPlan": [],
+  "isActive": false,
+  "version": 1,
+  "metadata": {
+    "createdAt": "2026-05-13T17:05:45.247Z",
+    "status": "template",
+    "recordCommand": "npx playwright codegen https://eportal.incometax.gov.in"
+  }
+}

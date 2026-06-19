@@ -342,6 +342,8 @@ CREATE TABLE IF NOT EXISTS job_logs (
   job_id                TEXT NOT NULL,
   type                  TEXT NOT NULL,
   site_id               UUID REFERENCES sites(id) ON DELETE SET NULL,
+  user_id               TEXT,
+  session_id            TEXT,
   status                TEXT DEFAULT 'pending',
   started_at            TIMESTAMPTZ DEFAULT NOW(),
   completed_at          TIMESTAMPTZ,
@@ -351,10 +353,22 @@ CREATE TABLE IF NOT EXISTS job_logs (
   selector_fallback_cnt INTEGER DEFAULT 0,
   retry_count           INTEGER DEFAULT 0,
   result                JSONB,
-  error                 TEXT
+  error                 TEXT,
+  updated_at            TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE job_logs ADD COLUMN IF NOT EXISTS user_id TEXT;
+ALTER TABLE job_logs ADD COLUMN IF NOT EXISTS session_id TEXT;
+ALTER TABLE job_logs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS idx_job_logs_job_id ON job_logs(job_id);
 CREATE INDEX IF NOT EXISTS idx_job_logs_status ON job_logs(status);
+CREATE INDEX IF NOT EXISTS idx_job_logs_user_id ON job_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_job_logs_session_id ON job_logs(session_id);
+CREATE INDEX IF NOT EXISTS idx_job_logs_started_at ON job_logs(started_at);
+
+-- ── File Indexes ─────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_user_files_created_at ON user_files(created_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_last_used ON sessions(last_used);
+
 
 -- ── Change Log ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS change_log (
@@ -367,6 +381,52 @@ CREATE TABLE IF NOT EXISTS change_log (
   detected_at       TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_change_log_page ON change_log(page_id);
+
+-- ── Observability: unified client + server events (session replay source) ──
+CREATE TABLE IF NOT EXISTS observability_events (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ts           TIMESTAMPTZ DEFAULT NOW(),
+  source       TEXT NOT NULL CHECK (source IN ('client', 'server', 'security')),
+  event_type   TEXT NOT NULL,
+  user_id      TEXT,
+  session_id   TEXT,
+  trace_id     TEXT,
+  span_id      TEXT,
+  request_id   TEXT,
+  route        TEXT,
+  release      TEXT,
+  git_sha      TEXT,
+  ip_hash      TEXT,
+  payload      JSONB DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_obs_events_ts ON observability_events(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_obs_events_session ON observability_events(session_id, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_obs_events_user ON observability_events(user_id, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_obs_events_type ON observability_events(event_type, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_obs_events_trace ON observability_events(trace_id);
+
+-- ── Error intelligence (enriched failures for admin + AI copilot) ─────────
+CREATE TABLE IF NOT EXISTS error_reports (
+  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ts            TIMESTAMPTZ DEFAULT NOW(),
+  source        TEXT NOT NULL DEFAULT 'api',
+  fingerprint   TEXT,
+  message       TEXT NOT NULL,
+  stack         TEXT,
+  user_id       TEXT,
+  session_id    TEXT,
+  request_id    TEXT,
+  trace_id      TEXT,
+  route         TEXT,
+  method        TEXT,
+  http_status   INTEGER,
+  severity      TEXT DEFAULT 'error',
+  context       JSONB DEFAULT '{}',
+  resolved      BOOLEAN DEFAULT false
+);
+CREATE INDEX IF NOT EXISTS idx_error_reports_ts ON error_reports(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_error_reports_fingerprint ON error_reports(fingerprint, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_error_reports_user ON error_reports(user_id, ts DESC);
 
 `;
 

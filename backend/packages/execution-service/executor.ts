@@ -26,6 +26,21 @@ class JobCancelledError extends Error {
   }
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message?.trim() || error.name || 'Unknown execution error';
+  }
+  if (typeof error === 'string') {
+    return error.trim() || 'Unknown execution error';
+  }
+  try {
+    const serialized = JSON.stringify(error);
+    return serialized && serialized !== '{}' ? serialized : 'Unknown execution error';
+  } catch {
+    return String(error) || 'Unknown execution error';
+  }
+}
+
 interface ExecutionContext {
   page: Page;
   contextId: string;
@@ -778,6 +793,154 @@ const ACTION_HANDLERS: Record<string, ActionHandler> = {
       });
     });
   },
+
+  // ── New Universal Actions ──────────────────────────────────
+
+  pressKey: async (step, ctx) => {
+    const key = resolveRuntimeValue(step.value, ctx) || 'Enter';
+    if (step.target?.value) {
+      const locator = await resolveLocator(step, ctx);
+      await locator.first().press(key);
+    } else {
+      await ctx.page.keyboard.press(key);
+    }
+    await humanDelay(50, 150);
+  },
+
+  doubleClick: async (step, ctx) => {
+    const locator = await resolveLocator(step, ctx);
+    await locator.first().dblclick({ timeout: step.timeout });
+    await humanDelay(200, 400);
+  },
+
+  hover: async (step, ctx) => {
+    const locator = await resolveLocator(step, ctx);
+    await locator.first().hover({ timeout: step.timeout });
+    await humanDelay(100, 300);
+  },
+
+  rightClick: async (step, ctx) => {
+    const locator = await resolveLocator(step, ctx);
+    await locator.first().click({ button: 'right', timeout: step.timeout });
+    await humanDelay(200, 400);
+  },
+
+  clearField: async (step, ctx) => {
+    const locator = await resolveLocator(step, ctx);
+    await locator.first().fill('', { timeout: step.timeout });
+    await humanDelay(50, 100);
+  },
+
+  switchTab: async (step, ctx) => {
+    // Wait for a new page (popup/tab) and switch to it
+    const context = ctx.page.context();
+    const pages = context.pages();
+    const tabIndex = parseInt(step.value ?? '-1', 10);
+
+    if (tabIndex >= 0 && tabIndex < pages.length) {
+      const targetPage = pages[tabIndex];
+      await targetPage.bringToFront();
+      (ctx as any).page = targetPage;
+    } else {
+      // Wait for a new tab to open
+      const newPage = await context.waitForEvent('page', { timeout: step.timeout ?? 15000 });
+      await newPage.waitForLoadState('domcontentloaded');
+      await newPage.bringToFront();
+      (ctx as any).page = newPage;
+    }
+    await humanDelay(300, 600);
+  },
+
+  closeTab: async (step, ctx) => {
+    const context = ctx.page.context();
+    const pages = context.pages();
+    if (pages.length > 1) {
+      await ctx.page.close();
+      const remaining = context.pages();
+      if (remaining.length > 0) {
+        (ctx as any).page = remaining[remaining.length - 1];
+        await remaining[remaining.length - 1].bringToFront();
+      }
+    }
+  },
+
+  acceptDialog: async (step, ctx) => {
+    const promptValue = resolveRuntimeValue(step.value, ctx);
+    ctx.page.once('dialog', async (dialog) => {
+      await dialog.accept(promptValue || undefined);
+    });
+    await humanDelay(100, 200);
+  },
+
+  dismissDialog: async (step, ctx) => {
+    ctx.page.once('dialog', async (dialog) => {
+      await dialog.dismiss();
+    });
+    await humanDelay(100, 200);
+  },
+
+  assertText: async (step, ctx) => {
+    const target = step.target?.value ?? 'body';
+    const expected = resolveRuntimeValue(step.value, ctx);
+    const text = await ctx.page.locator(target).first().textContent({ timeout: step.timeout });
+    if (!text?.includes(expected)) {
+      throw new Error(`assertText failed: "${expected}" not found in "${text?.slice(0, 100)}"`);
+    }
+  },
+
+  assertURL: async (step, ctx) => {
+    const expected = resolveRuntimeValue(step.value, ctx);
+    const currentUrl = ctx.page.url();
+    if (!currentUrl.includes(expected)) {
+      throw new Error(`assertURL failed: expected URL to contain "${expected}", got "${currentUrl}"`);
+    }
+  },
+
+  iframe: async (step, ctx) => {
+    // Switch into an iframe and execute nested steps
+    const selector = step.target?.value ?? 'iframe';
+    const frameLocator = ctx.page.frameLocator(selector);
+    const frame = ctx.page.frame({ url: step.value ? new RegExp(step.value) : undefined }) ?? ctx.page.frames()[1];
+    if (!frame) throw new Error(`iframe not found: ${selector}`);
+
+    // Create a temporary context with the iframe's page-like interface
+    const originalPage = ctx.page;
+    (ctx as any).page = frame;
+    try {
+      await executeNestedSteps(step.trueSteps, ctx);
+    } finally {
+      (ctx as any).page = originalPage;
+    }
+  },
+
+  loop: async (step, ctx) => {
+    // Generic loop: iterate N times or over extracted data
+    const iterations = parseInt(step.value ?? '1', 10);
+    for (let i = 0; i < iterations; i++) {
+      ctx.extractedData[`${step.id}_index`] = i;
+      await executeNestedSteps(step.trueSteps, ctx);
+    }
+  },
+
+  dragDrop: async (step, ctx) => {
+    if (!step.target?.value || !step.value) {
+      throw new Error('dragDrop requires target (source) and value (destination selector)');
+    }
+    const source = await resolveLocator(step, ctx);
+    const dest = ctx.page.locator(resolveRuntimeValue(step.value, ctx));
+    await source.first().dragTo(dest.first(), { timeout: step.timeout });
+    await humanDelay(200, 500);
+  },
+
+  goBack: async (step, ctx) => {
+    await ctx.page.goBack({ waitUntil: 'domcontentloaded', timeout: step.timeout });
+    await humanDelay(300, 600);
+  },
+
+  goForward: async (step, ctx) => {
+    await ctx.page.goForward({ waitUntil: 'domcontentloaded', timeout: step.timeout });
+    await humanDelay(300, 600);
+  },
 };
 
 export class ExecutionEngine {
@@ -804,7 +967,7 @@ export class ExecutionEngine {
         job.payload.siteId
       );
 
-      const lease = await pool.acquireContext(sessionId, job.userId, session, session.proxy as any);
+      const lease = await pool.acquireContext(sessionId, job.userId, session, session.proxy as any, job.payload.lightweight);
       contextId = lease.contextId;
       const page = await pool.getOrCreatePage(contextId);
 
@@ -865,7 +1028,7 @@ export class ExecutionEngine {
 
           allSucceeded = stepResults.every((result) => result.success);
         } catch (err) {
-          logger.error('job:execution-error', { jobId: job.id, attempt: attempts, error: (err as Error).message });
+          logger.error('job:execution-error', err, { jobId: job.id, attempt: attempts });
           if (attempts >= MAX_JOB_ATTEMPTS) throw err;
           await humanDelay(2000 * attempts, 5000 * attempts);
         }
@@ -877,8 +1040,18 @@ export class ExecutionEngine {
       await this.sessionManager.save(sessionId, page, lease.context);
 
       allSucceeded = stepResults.every((result) => result.success);
-      await this.logResult(job.id, job.payload.siteId, allSucceeded, stepResults, ctx.metrics);
-      await updateJobRuntimeState(ctx, { status: allSucceeded ? 'completed' : 'failed' });
+      await this.logResult(job.id, job.userId, job.payload.sessionId, job.payload.siteId, allSucceeded, stepResults, ctx.metrics);
+      const failedStepError = stepResults.find((result) => result.error)?.error;
+      await updateJobRuntimeState(ctx, {
+        status: allSucceeded ? 'completed' : 'failed',
+        error: allSucceeded ? undefined : (failedStepError || 'Workflow finished with failed steps'),
+        result: { steps: stepResults },
+      });
+
+      await getRedisClient().then(r => r.publish('chat:message', JSON.stringify({
+        sessionId,
+        message: allSucceeded ? `✅ Task completed successfully.` : `⚠️ Task encountered errors and could not complete all steps.`,
+      }))).catch(() => {});
 
       // Cleanup old temp files (best effort)
       userFileStore.cleanupTempFiles().catch(() => {});
@@ -897,7 +1070,7 @@ export class ExecutionEngine {
         sessionId,
       };
     } catch (err) {
-      const error = (err as Error).message;
+      const error = getErrorMessage(err);
       const wasCancelled = err instanceof JobCancelledError;
 
       if (contextId) {
@@ -927,7 +1100,7 @@ export class ExecutionEngine {
             workflowStack: [],
             metrics: { aiCallCount: 0, selectorFallbackCount: 0, retryCount: 0 },
             cancellation: { cancelled: wasCancelled },
-          }, { status: 'failed' });
+          }, { status: 'failed', error });
         } catch {}
       }
 
@@ -935,10 +1108,27 @@ export class ExecutionEngine {
         logger.warn('job:cancelled', { jobId: job.id, userId: job.userId, sessionId });
       }
 
-      // Ensure the context is released on failure as well
       if (contextId) {
         await pool.releaseContext(contextId, false).catch(() => {});
       }
+
+      await getRedisClient().then(r => r.publish('chat:message', JSON.stringify({
+        sessionId,
+        message: `❌ Task failed: ${error}`,
+      }))).catch(() => {});
+
+      await this.logResult(
+        job.id,
+        job.userId,
+        sessionId,
+        job.payload.siteId,
+        false,
+        stepResults,
+        { aiCallCount: 0, selectorFallbackCount: 0, retryCount: 0 },
+        error
+      ).catch((logError) => {
+        logger.error('job:log-result-failed', logError, { jobId: job.id, originalError: error });
+      });
 
       return {
         jobId: job.id,
@@ -974,7 +1164,7 @@ export class ExecutionEngine {
           retryCount: attempt,
         };
       } catch (err) {
-        lastError = (err as Error).message;
+        lastError = getErrorMessage(err);
         try {
           const path = userFileStore.getTempPath('screenshots', `fail-step-${step.id}-${attempt}.png`);
           await ctx.page.screenshot({ path });
@@ -1026,20 +1216,29 @@ export class ExecutionEngine {
 
   private async logResult(
     jobId: string,
+    userId: string,
+    sessionId: string,
     siteId: string,
     success: boolean,
     steps: StepResult[],
-    metrics: ExecutionContext['metrics']
+    metrics: ExecutionContext['metrics'],
+    errorMessage?: string
   ): Promise<void> {
     const pool = getPgPool();
     const totalDuration = steps.reduce((sum, step) => sum + step.duration, 0);
+    
+    // Find first error from steps if errorMessage isn't provided
+    const finalError = errorMessage || steps.find(s => s.error)?.error || null;
+    
     await pool.query(
       `INSERT INTO job_logs (
-         job_id, type, site_id, status, completed_at, duration_ms,
-         success, ai_call_count, selector_fallback_cnt, retry_count, result
-       ) VALUES ($1, 'execute', $2, $3, NOW(), $4, $5, $6, $7, $8, $9)`,
+         job_id, user_id, session_id, type, site_id, status, completed_at, duration_ms,
+         success, ai_call_count, selector_fallback_cnt, retry_count, result, error
+       ) VALUES ($1, $2, $3, 'execute', $4, $5, NOW(), $6, $7, $8, $9, $10, $11, $12)`,
       [
         jobId,
+        userId,
+        sessionId,
         siteId,
         success ? 'completed' : 'failed',
         totalDuration,
@@ -1048,6 +1247,7 @@ export class ExecutionEngine {
         metrics.selectorFallbackCount,
         metrics.retryCount,
         JSON.stringify({ steps }),
+        finalError
       ]
     );
   }

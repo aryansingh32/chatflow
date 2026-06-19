@@ -1,0 +1,9 @@
+# Reference values — deploy Grafana/Loki/Tempo/Prometheus via official charts
+# or reuse infra/observability/docker-compose for dev.
+
+api:
+  otel:
+    exporterOtlpEndpoint: "http://otel-collector:4318"
+  extraEnv:
+    - name: OTEL_SERVICE_NAME
+      value: chatflow-api

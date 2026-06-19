@@ -1,0 +1,16 @@
+{
+  "name": "SSC",
+  "domain": "ssc.gov.in",
+  "category": "ssc",
+  "portalType": "jobs",
+  "entryUrl": "https://ssc.gov.in/",
+  "description": "All workflows for SSC",
+  "workflows": [
+    "ssc-job-application",
+    "ssc-admit-card-download",
+    "ssc-result-check",
+    "ssc-answer-key"
+  ],
+  "recordCommand": "npx playwright codegen https://ssc.gov.in",
+  "createdAt": "2026-05-13T17:05:45.248Z"
+}

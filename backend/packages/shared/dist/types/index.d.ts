@@ -30,6 +30,7 @@ export interface ExecuteJob extends BaseJob {
         sessionId: string;
         useCache: boolean;
         dryRun?: boolean;
+        lightweight?: boolean;
     };
 }
 export interface RemapJob extends BaseJob {
@@ -115,17 +116,35 @@ export interface BoundingBox {
 }
 export interface ActionStep {
     id: string;
-    order: number;
+    order?: number;
     action: ActionType;
-    target?: SelectorCandidate;
+    target?: {
+        value: string;
+        type?: 'css' | 'text' | 'role' | 'testid' | 'xpath' | 'url';
+        confidence?: number;
+        fallbackSelectors?: string[];
+        roleName?: string;
+        roleOptions?: Record<string, unknown>;
+    };
     value?: string;
+    description?: string;
     waitFor?: string;
-    timeout: number;
-    retries: number;
-    description: string;
-    expectedInput?: 'otp' | 'upi_id' | 'captcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password';
+    timeout?: number;
+    retries?: number;
+    humanDelay?: boolean;
+    humanType?: boolean;
+    expectedInput?: 'otp' | 'upi_id' | 'captcha' | 'clickCaptcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password' | 'file';
+    contextMessage?: string;
+    condition?: {
+        type: 'exists' | 'contains_text' | 'url_contains' | 'status';
+        target?: string;
+        value?: string;
+    };
+    trueSteps?: ActionStep[];
+    falseSteps?: ActionStep[];
+    metadata?: Record<string, any>;
 }
-export type ActionType = 'navigate' | 'click' | 'fill' | 'select' | 'upload' | 'download' | 'wait' | 'waitForSelector' | 'scroll' | 'screenshot' | 'extract' | 'pauseForUserInput' | 'payment';
+export type ActionType = 'navigate' | 'click' | 'fill' | 'select' | 'check' | 'uncheck' | 'upload' | 'download' | 'waitForSelector' | 'waitForNavigation' | 'waitForTimeout' | 'scroll' | 'mouseMove' | 'humanType' | 'pauseForUserInput' | 'extractData' | 'runSubWorkflow' | 'conditional' | 'customJS' | 'refresh' | 'wait' | 'screenshot' | 'extract' | 'payment' | 'retryLoop' | 'clickCaptcha' | 'pressKey' | 'doubleClick' | 'hover' | 'rightClick' | 'clearField' | 'switchTab' | 'closeTab' | 'acceptDialog' | 'dismissDialog' | 'assertText' | 'assertURL' | 'iframe' | 'loop' | 'dragDrop' | 'goBack' | 'goForward';
 export interface ExecutionResult {
     jobId: string;
     success: boolean;
@@ -223,7 +242,7 @@ export interface ConversationState {
     awaitingInput?: {
         jobId: string;
         stepId: string;
-        type: 'otp' | 'upi_id' | 'captcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password';
+        type: 'otp' | 'upi_id' | 'captcha' | 'clickCaptcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password' | 'file';
         contextMessage: string;
     };
     memoryContext: Record<string, any>;
@@ -237,28 +256,38 @@ export interface JobRuntimeState {
     task: string;
     status: 'queued' | 'running' | 'paused' | 'completed' | 'failed';
     activeStepId?: string;
-    lastInputType?: 'otp' | 'upi_id' | 'captcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password';
+    lastInputType?: 'otp' | 'upi_id' | 'captcha' | 'clickCaptcha' | 'confirmation' | 'text' | 'email' | 'mobile' | 'password' | 'file';
+    error?: string;
+    result?: unknown;
     createdAt: string;
     updatedAt: string;
 }
 export interface SiteWorkflow {
     id: string;
+    workflowKey?: string;
     siteId: string;
+    category?: string;
     name: string;
     trigger: string;
+    triggerPhrases?: string[];
     portalType?: 'government' | 'jobs' | 'education' | 'banking' | 'general' | 'aadhaar';
     siteSection?: string;
     entryUrl?: string;
     pageUrl?: string;
     pageUrlPattern?: string;
+    pageUrlPatterns?: string[];
     requiredInputs?: string[];
     requiredFiles?: Array<'resume' | 'signature' | 'photo' | 'document' | 'receipt' | 'other'>;
     instructions: string;
     defaultProfileName?: string;
     starterActionPlan?: ActionStep[];
+    errorRecoveryPlan?: ActionStep[];
     version?: number;
     isActive?: boolean;
     completionArtifact?: string;
+    metadata?: Record<string, unknown> & {
+        lightweight?: boolean;
+    };
     createdAt: Date;
     updatedAt: Date;
 }

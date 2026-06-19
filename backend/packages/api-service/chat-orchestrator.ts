@@ -2,7 +2,7 @@ import { getRedisClient, CacheKeys } from '../shared/db/index.js';
 import { getLLMProviderConfig, getOpenAICompatibleClient, getReasoningRequestBody } from '../shared/llm/index.js';
 import { memoryService } from './user-memory.service.js';
 import type { ConversationState, ExecuteJob, JobRuntimeState } from '../shared/types/index.js';
-import { enqueueJob } from '../shared/queue/index.js';
+import { enqueueJob, getJobPosition } from '../shared/queue/index.js';
 import { randomUUID } from 'crypto';
 import { fileStorageService } from './file-storage.service.js';
 import { siteWorkflowService } from './site-workflow.service.js';
@@ -23,6 +23,7 @@ type WorkflowMatch = {
   workflowName: string;
   trigger: string;
   score: number;
+  lightweight?: boolean;
 };
 
 type ParsedChatDecision = {
@@ -110,6 +111,7 @@ async function findMatchingWorkflow(task: string): Promise<WorkflowMatch | null>
         workflowName: workflow.name,
         trigger: workflow.trigger,
         score,
+        lightweight: workflow.metadata?.lightweight as boolean | undefined,
       };
     }
   }
@@ -397,7 +399,8 @@ export class ChatOrchestrator {
             siteId: workflowMatch.siteId,
             task: taskInstruction,
             sessionId,
-            useCache: false
+            useCache: false,
+            lightweight: workflowMatch.lightweight
           }
         };
 
@@ -422,6 +425,17 @@ export class ChatOrchestrator {
           sessionId,
           userId,
         });
+
+        // Check queue position and notify user
+        try {
+          const position = await getJobPosition('execute', jobId);
+          if (position !== null && position > 0) {
+            const estimatedMins = Math.max(1, Math.ceil(position * 1.5));
+            replyCallback(`Your task is queued, ${position} tasks ahead of you, estimated wait ${estimatedMins} minute${estimatedMins > 1 ? 's' : ''}.`);
+          }
+        } catch (e) {
+          logger.error('failed-to-get-queue-position', e);
+        }
       }
 
       await this.saveState(state);

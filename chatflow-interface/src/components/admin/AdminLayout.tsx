@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   Users,
@@ -16,6 +16,9 @@ import {
   ChevronRight,
   Zap,
   RefreshCw,
+  Orbit,
+  Fingerprint,
+  Sparkles,
 } from "lucide-react";
 
 interface NavItem {
@@ -25,6 +28,9 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { id: "observability", label: "Observability", icon: <Orbit className="h-4 w-4" /> },
+  { id: "sessions", label: "Session Intel", icon: <Fingerprint className="h-4 w-4" /> },
+  { id: "copilot", label: "AI Copilot", icon: <Sparkles className="h-4 w-4" /> },
   { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: "jobs", label: "Jobs & Tasks", icon: <Zap className="h-4 w-4" /> },
   { id: "users", label: "Users", icon: <Users className="h-4 w-4" /> },

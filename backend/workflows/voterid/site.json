@@ -1,0 +1,17 @@
+{
+  "name": "VoterID",
+  "domain": "voters.eci.gov.in",
+  "category": "voter",
+  "portalType": "government",
+  "entryUrl": "https://voters.eci.gov.in/",
+  "description": "All workflows for VoterID",
+  "workflows": [
+    "voterid-apply-voter-id",
+    "voterid-check-status",
+    "voterid-download-voter-id",
+    "voterid-correction",
+    "voterid-search-name"
+  ],
+  "recordCommand": "npx playwright codegen https://voters.eci.gov.in",
+  "createdAt": "2026-05-13T17:05:45.251Z"
+}

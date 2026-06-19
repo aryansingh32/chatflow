@@ -1,0 +1,17 @@
+{
+  "name": "DrivingLicense",
+  "domain": "parivahan.gov.in",
+  "category": "driving",
+  "portalType": "government",
+  "entryUrl": "https://parivahan.gov.in/",
+  "description": "All workflows for DrivingLicense",
+  "workflows": [
+    "drivinglicense-apply-learner-license",
+    "drivinglicense-apply-driving-license",
+    "drivinglicense-renew-license",
+    "drivinglicense-international-permit",
+    "drivinglicense-check-status"
+  ],
+  "recordCommand": "npx playwright codegen https://parivahan.gov.in",
+  "createdAt": "2026-05-13T17:05:45.251Z"
+}

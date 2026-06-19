@@ -1,0 +1,48 @@
+{
+  "id": "voterid-search-name",
+  "siteId": "voterid-voters",
+  "name": "VoterID — Search Name",
+  "category": "voter",
+  "trigger": "search name voterid",
+  "triggerPhrases": [
+    "search name",
+    "voterid search name"
+  ],
+  "portalType": "government",
+  "entryUrl": "https://voters.eci.gov.in/",
+  "pageUrlPatterns": [
+    "voters\\\\.eci\\\\.gov\\\\.in"
+  ],
+  "requiredInputs": [],
+  "requiredFiles": [],
+  "instructions": "Workflow for search name on VoterID. Record with: npx playwright codegen https://voters.eci.gov.in",
+  "starterActionPlan": [
+    {
+      "id": "s1",
+      "order": 1,
+      "action": "navigate",
+      "value": "https://voters.eci.gov.in/",
+      "timeout": 30000,
+      "retries": 2,
+      "description": "Navigate to VoterID portal",
+      "humanDelay": true
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "timeout": 180000,
+      "contextMessage": "Please provide the required details to proceed.",
+      "description": "Collect user input"
+    }
+  ],
+  "errorRecoveryPlan": [],
+  "isActive": false,
+  "version": 1,
+  "metadata": {
+    "createdAt": "2026-05-13T17:05:45.251Z",
+    "status": "template",
+    "recordCommand": "npx playwright codegen https://voters.eci.gov.in"
+  }
+}

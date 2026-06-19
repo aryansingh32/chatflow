@@ -89,8 +89,10 @@ export interface AdminJob {
   user_id: string;
   started_at: string;
   completed_at?: string;
-  error_message?: string;
+  error?: string;
   task?: string;
+  result?: unknown;
+  runtime?: unknown;
 }
 
 export interface AdminUser {
@@ -144,6 +146,45 @@ export interface AdminSite {
   status: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ObsSessionRow {
+  session_id: string;
+  user_id: string | null;
+  last_ts: string;
+  event_count: string;
+}
+
+export interface ObsTimelineEvent {
+  id: string;
+  ts: string;
+  source: string;
+  event_type: string;
+  user_id?: string | null;
+  session_id?: string | null;
+  trace_id?: string | null;
+  request_id?: string | null;
+  route?: string | null;
+  release?: string | null;
+  payload?: unknown;
+}
+
+export interface ErrorReportRow {
+  id: string;
+  ts: string;
+  source: string;
+  fingerprint?: string;
+  message: string;
+  stack?: string | null;
+  user_id?: string | null;
+  session_id?: string | null;
+  request_id?: string | null;
+  trace_id?: string | null;
+  route?: string | null;
+  method?: string | null;
+  http_status?: number | null;
+  severity?: string;
+  context?: unknown;
 }
 
 // ── API ───────────────────────────────────────────────────
@@ -226,4 +267,18 @@ export const adminApi = {
     if (params?.offset) q.set("offset", String(params.offset));
     return aGet<{ sites: AdminSite[]; total: number }>(`/admin/sites?${q}`);
   },
+
+  // Observability
+  observabilitySummary: () =>
+    aGet<{ events24h: number; errors24h: number; sessions24h: number }>("/admin/observability/summary"),
+  listObsSessions: (limit = 50) =>
+    aGet<{ sessions: ObsSessionRow[] }>(`/admin/observability/sessions?limit=${limit}`),
+  sessionTimeline: (sessionId: string, limit = 500) =>
+    aGet<{ sessionId: string; events: ObsTimelineEvent[] }>(
+      `/admin/observability/sessions/${encodeURIComponent(sessionId)}/timeline?limit=${limit}`
+    ),
+  listObsErrors: (limit = 100) =>
+    aGet<{ errors: ErrorReportRow[] }>(`/admin/observability/errors?limit=${limit}`),
+  observabilityCopilot: (body: { question: string; errorReportId?: string; context?: Record<string, unknown> }) =>
+    aPost<{ answer: string; model?: string; structured?: unknown }>("/admin/observability/copilot", body),
 } as const;

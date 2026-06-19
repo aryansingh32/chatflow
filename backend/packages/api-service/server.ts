@@ -14,6 +14,7 @@ import { register as promRegister, Gauge } from 'prom-client';
 import { Server as SocketIOServer } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { chatOrchestrator } from './chat-orchestrator.js';
+import { ADMIN_OBSERVABILITY_CHANNEL } from './observability.service.js';
 import { memoryService } from './user-memory.service.js';
 import { siteWorkflowService } from './site-workflow.service.js';
 import type { ActionStep, JobRuntimeState } from '../shared/types/index.js';
@@ -21,6 +22,9 @@ import { fileStorageService } from './file-storage.service.js';
 import { workflowLoader } from '../shared/workflow-loader.js';
 import { createLogger } from '../shared/logger/index.js';
 import { registerAdminRoutes } from './admin-routes.js';
+import { registerObservabilityAdminRoutes, registerClientTelemetryRoutes } from './observability-routes.js';
+import { persistErrorReport } from './observability.service.js';
+import { initNodeTelemetry } from './telemetry.js';
 
 // ============================================================
 // API SERVICE — Fastify gateway
@@ -89,7 +93,7 @@ async function buildApp(): Promise<FastifyInstance> {
       callback(new Error(`Origin ${origin} is not allowed by CORS`), false);
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'x-api-key', 'x-admin-key', 'Authorization'],
     exposedHeaders: ['Content-Type', 'Content-Disposition'],
   });
 
@@ -117,13 +121,41 @@ async function buildApp(): Promise<FastifyInstance> {
     });
   });
 
-  app.setErrorHandler((error, req, reply) => {
+  app.setErrorHandler(async (error, req, reply) => {
     logger.error('request:error', error, {
       requestId: req.id,
       method: req.method,
       url: req.url,
     });
-    reply.status(error.statusCode ?? 500).send({ error: error.message || 'Internal Server Error' });
+    const status = error.statusCode ?? 500;
+    if (status >= 500 || status === 429) {
+      let traceId: string | undefined;
+      try {
+        const { trace } = await import('@opentelemetry/api');
+        traceId = trace.getActiveSpan()?.spanContext().traceId;
+      } catch {
+        traceId = undefined;
+      }
+      try {
+        await persistErrorReport({
+          message: error.message || 'Internal Server Error',
+          stack: error.stack,
+          requestId: String(req.id),
+          traceId,
+          route: req.url,
+          method: req.method,
+          httpStatus: status,
+          source: 'api',
+          context: {
+            validation: (error as { validation?: unknown }).validation,
+            code: (error as { code?: string }).code,
+          },
+        });
+      } catch {
+        /* never block response on observability persistence */
+      }
+    }
+    reply.status(status).send({ error: error.message || 'Internal Server Error' });
   });
 
   // ── Health ──────────────────────────────────────────────────
@@ -526,6 +558,10 @@ async function buildApp(): Promise<FastifyInstance> {
     reply
       .header('Content-Type', fileData.file.mimeType)
       .header('Content-Disposition', `attachment; filename="${fileData.file.originalName}"`);
+    
+    // Auto-delete after download (Cost reduction)
+    fileStorageService.deleteFile(fileId, userId).catch(() => {});
+    
     return reply.send(fileData.buffer);
   });
 
@@ -713,6 +749,8 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // ── Admin Panel Routes ─────────────────────────────────────
   await registerAdminRoutes(app);
+  await registerObservabilityAdminRoutes(app);
+  await registerClientTelemetryRoutes(app);
 
   return app;
 }
@@ -721,7 +759,8 @@ async function buildApp(): Promise<FastifyInstance> {
 
 async function main() {
   try {
-    // Initialize infrastructure
+    // Initialize infrastructure (OTEL first so migrations/HTTP are traced when enabled)
+    await initNodeTelemetry();
     await runMigrations();
     if (process.env.WORKFLOW_AUTOLOAD !== 'false') {
       await workflowLoader.loadAllWorkflows();
@@ -749,7 +788,7 @@ async function main() {
           callback(new Error(`Origin ${origin} is not allowed by Socket.IO CORS`), false);
         },
         methods: ['GET', 'POST'],
-        allowedHeaders: ['x-api-key'],
+        allowedHeaders: ['x-api-key', 'x-admin-key'],
       }
     });
 
@@ -757,6 +796,32 @@ async function main() {
     const subClient = pubClient.duplicate();
     await subClient.connect();
     io.adapter(createAdapter(pubClient, subClient));
+
+    const adminNs = io.of('/admin');
+    adminNs.use((socket, next) => {
+      const auth = socket.handshake.auth as { adminKey?: string } | undefined;
+      const headerKey = socket.handshake.headers['x-admin-key'];
+      const key = (typeof headerKey === 'string' ? headerKey : undefined) ?? auth?.adminKey;
+      const expected = process.env.ADMIN_API_KEY ?? process.env.API_KEY ?? 'dev-key-change-in-prod';
+      if (!key || key !== expected) {
+        next(new Error('Unauthorized'));
+        return;
+      }
+      next();
+    });
+    adminNs.on('connection', (socket) => {
+      logger.info('admin-socket:connected', { socketId: socket.id });
+      socket.emit('ready', { channel: 'observability' });
+    });
+    const adminObsSub = pubClient.duplicate();
+    await adminObsSub.connect();
+    await adminObsSub.subscribe(ADMIN_OBSERVABILITY_CHANNEL, (msg) => {
+      try {
+        adminNs.emit('feed', JSON.parse(msg));
+      } catch {
+        adminNs.emit('feed', { raw: msg });
+      }
+    });
 
     // Listen for events from ExecutionService (Pause for input)
     const systemSub = pubClient.duplicate();
@@ -831,6 +896,17 @@ async function main() {
         );
       } catch (e) {
         logger.error('socket:chat-file-handler-failed', e);
+      }
+    });
+
+    await systemSub.subscribe('chat:message', async (message) => {
+      try {
+        const payload = JSON.parse(message);
+        if (payload.sessionId && payload.message) {
+          io.to(`session:${payload.sessionId}`).emit('chat:receive', payload.message);
+        }
+      } catch (e) {
+        logger.error('socket:chat-message-handler-failed', e);
       }
     });
 
@@ -932,14 +1008,10 @@ setInterval(() => {
       socket.on('disconnect', async (reason) => {
         logger.info('socket:disconnected', { socketId: socket.id, reason });
 
-        // Auto-cancel any running jobs owned by this socket
         const tracked = socketJobMap.get(socket.id);
         if (tracked && tracked.jobIds.size > 0) {
-          const redis = await getRedisClient();
           for (const jobId of tracked.jobIds) {
-            logger.warn('job:auto-cancel-on-disconnect', { jobId, socketId: socket.id, reason });
-            await redis.setEx(CacheKeys.jobCancel(jobId), 86400, '1');
-            await redis.publish(`job:cancel:${jobId}`, 'cancel');
+            logger.info('job:socket-detached-keeping-running', { jobId, socketId: socket.id, reason });
           }
         }
         socketJobMap.delete(socket.id);

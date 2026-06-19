@@ -14,6 +14,10 @@ function ago(ts: string) {
 }
 
 function JobDetailModal({ job, onClose }: { job: AdminJob; onClose: () => void }) {
+  const resultText = job.result ? JSON.stringify(job.result, null, 2) : "";
+  const runtimeText = job.runtime ? JSON.stringify(job.runtime, null, 2) : "";
+  const missingError = job.status === "failed" && !job.error;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-2xl rounded-2xl border border-border/60 bg-[oklch(0.16_0.012_260)] p-6 shadow-2xl">
@@ -46,10 +50,32 @@ function JobDetailModal({ job, onClose }: { job: AdminJob; onClose: () => void }
             <p className="text-sm text-foreground">{job.task}</p>
           </div>
         )}
-        {job.error_message && (
+        {job.error && (
           <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3">
             <p className="text-[10px] text-red-400 uppercase tracking-wider mb-1">Error</p>
-            <p className="text-sm text-red-300 font-mono">{job.error_message}</p>
+            <p className="text-sm text-red-300 font-mono">{job.error}</p>
+          </div>
+        )}
+        {missingError && (
+          <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+            <p className="text-[10px] text-amber-400 uppercase tracking-wider mb-1">Error</p>
+            <p className="text-sm text-amber-200">No error text was captured for this older failed job.</p>
+          </div>
+        )}
+        {(resultText || runtimeText) && (
+          <div className="mt-3 max-h-72 overflow-auto rounded-xl border border-border/40 bg-black/20 p-3">
+            {resultText && (
+              <>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Result</p>
+                <pre className="mb-3 whitespace-pre-wrap text-xs text-muted-foreground">{resultText}</pre>
+              </>
+            )}
+            {runtimeText && (
+              <>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Runtime</p>
+                <pre className="whitespace-pre-wrap text-xs text-muted-foreground">{runtimeText}</pre>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -93,6 +119,18 @@ export function JobsPanel() {
     e.stopPropagation();
     await adminApi.retryJob(jobId).catch(() => {});
     load();
+  };
+
+  const openJob = async (job: AdminJob) => {
+    setSelected(job);
+    try {
+      const detail = await adminApi.getJob(job.job_id);
+      setSelected({
+        ...job,
+        ...detail.job,
+        runtime: detail.runtime,
+      });
+    } catch {}
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -144,45 +182,53 @@ export function JobsPanel() {
             <div className="py-12 text-center text-sm text-muted-foreground">No jobs found</div>
           ) : (
             jobs.map((job) => (
-              <div
-                key={job.job_id}
-                onClick={() => setSelected(job)}
-                className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1fr_auto] gap-px bg-transparent hover:bg-accent/20 cursor-pointer transition-colors"
-              >
-                <div className="bg-transparent px-4 py-3 font-mono text-xs text-violet-300 truncate">
-                  {job.job_id.slice(0, 16)}…
-                </div>
-                <div className="px-4 py-3 text-xs text-foreground capitalize">{job.type}</div>
-                <div className="px-4 py-3 text-xs text-muted-foreground truncate">{job.user_id}</div>
-                <div className="px-4 py-3 text-xs text-muted-foreground">{ago(job.started_at)}</div>
-                <div className="px-4 py-3"><StatusBadge status={job.status} /></div>
-                <div className="px-4 py-3 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => setSelected(job)}
-                    className="rounded p-1 text-muted-foreground hover:text-violet-300 transition"
-                    title="View"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </button>
-                  {(job.status === "running" || job.status === "queued") && (
+              <div key={job.job_id}>
+                <div
+                  onClick={() => openJob(job)}
+                  className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1fr_auto] gap-px bg-transparent hover:bg-accent/20 cursor-pointer transition-colors"
+                >
+                  <div className="bg-transparent px-4 py-3 font-mono text-xs text-violet-300 truncate">
+                    {job.job_id.slice(0, 16)}…
+                  </div>
+                  <div className="px-4 py-3 text-xs text-foreground capitalize">{job.type}</div>
+                  <div className="px-4 py-3 text-xs text-muted-foreground truncate">{job.user_id}</div>
+                  <div className="px-4 py-3 text-xs text-muted-foreground">{ago(job.started_at)}</div>
+                  <div className="px-4 py-3"><StatusBadge status={job.status} /></div>
+                  <div className="px-4 py-3 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={(e) => handleCancel(job.job_id, e)}
-                      className="rounded p-1 text-muted-foreground hover:text-red-400 transition"
-                      title="Cancel"
+                      onClick={() => openJob(job)}
+                      className="rounded p-1 text-muted-foreground hover:text-violet-300 transition"
+                      title="View"
                     >
-                      <XCircle className="h-3.5 w-3.5" />
+                      <Eye className="h-3.5 w-3.5" />
                     </button>
-                  )}
-                  {job.status === "failed" && (
-                    <button
-                      onClick={(e) => handleRetry(job.job_id, e)}
-                      className="rounded p-1 text-muted-foreground hover:text-emerald-400 transition"
-                      title="Retry"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+                    {(job.status === "running" || job.status === "queued") && (
+                      <button
+                        onClick={(e) => handleCancel(job.job_id, e)}
+                        className="rounded p-1 text-muted-foreground hover:text-red-400 transition"
+                        title="Cancel"
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {job.status === "failed" && (
+                      <button
+                        onClick={(e) => handleRetry(job.job_id, e)}
+                        className="rounded p-1 text-muted-foreground hover:text-emerald-400 transition"
+                        title="Retry"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
+                {job.status === "failed" && job.error && (
+                  <div className="col-span-full px-4 py-2 bg-red-500/5 border-t border-red-500/20">
+                    <p className="text-xs text-red-400 font-mono truncate" title={job.error}>
+                      ⚠ {job.error}
+                    </p>
+                  </div>
+                )}
               </div>
             ))
           )}

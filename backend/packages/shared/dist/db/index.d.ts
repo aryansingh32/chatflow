@@ -12,6 +12,7 @@ export declare const CacheKeys: {
     siteGraph: (siteId: string) => string;
     flowCache: (siteId: string, taskHash: string) => string;
     jobRuntime: (jobId: string) => string;
+    jobCancel: (jobId: string) => string;
     proxyPool: () => string;
 };
 export declare function runMigrations(): Promise<void>;

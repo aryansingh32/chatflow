@@ -305,28 +305,52 @@ export class SiteCrawler {
         RETURNING id
       `, [node.id, this.siteId, node.url, node.title, node.loadTime, node.lastVerified, domHash, node.reliabilityScore]);
             const pageId = rows[0].id;
-            // Upsert elements
+            // Batch insert elements
+            const elementsChunkSize = 500;
+            for (let i = 0; i < node.elements.length; i += elementsChunkSize) {
+                const chunk = node.elements.slice(i, i + elementsChunkSize);
+                const elValues = [];
+                const elParams = [];
+                let pIdx = 1;
+                for (const el of chunk) {
+                    elValues.push(`($${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++})`);
+                    elParams.push(el.id, pageId, el.type, el.label, JSON.stringify(el.attributes), JSON.stringify(el.boundingBox), el.visible, el.interactable);
+                }
+                if (elValues.length > 0) {
+                    await client.query(`
+            INSERT INTO elements (id, page_id, type, label, attributes, bounding_box, visible, interactable)
+            VALUES ${elValues.join(', ')}
+            ON CONFLICT DO NOTHING
+          `, elParams);
+                }
+            }
+            // Collect all selectors
+            const allSelectors = [];
             for (const el of node.elements) {
-                const { rows: elRows } = await client.query(`
-          INSERT INTO elements (id, page_id, type, label, attributes, bounding_box, visible, interactable)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT DO NOTHING
-          RETURNING id
-        `, [
-                    el.id, pageId, el.type, el.label,
-                    JSON.stringify(el.attributes),
-                    JSON.stringify(el.boundingBox),
-                    el.visible, el.interactable,
-                ]);
-                // Upsert selectors
                 for (const sel of el.selectors) {
+                    allSelectors.push({ elId: el.id, sel });
+                }
+            }
+            // Batch insert selectors
+            const selectorsChunkSize = 2000;
+            const now = new Date();
+            for (let i = 0; i < allSelectors.length; i += selectorsChunkSize) {
+                const chunk = allSelectors.slice(i, i + selectorsChunkSize);
+                const selValues = [];
+                const selParams = [];
+                let pIdx = 1;
+                for (const item of chunk) {
+                    selValues.push(`($${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++})`);
+                    selParams.push(item.elId, item.sel.value, item.sel.type, item.sel.confidence, now);
+                }
+                if (selValues.length > 0) {
                     await client.query(`
             INSERT INTO selectors (element_id, value, type, confidence, last_validated)
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES ${selValues.join(', ')}
             ON CONFLICT (element_id, value) DO UPDATE SET
               confidence = EXCLUDED.confidence,
               last_validated = EXCLUDED.last_validated
-          `, [el.id, sel.value, sel.type, sel.confidence, new Date()]);
+          `, selParams);
                 }
             }
         });

@@ -220,7 +220,7 @@
           "#otp"
         ]
       },
-      "timeout": 20000,
+      "timeout": 60000,
       "retries": 2,
       "description": "Wait for OTP field"
     },
@@ -265,7 +265,7 @@
           "text=/download/i"
         ]
       },
-      "timeout": 20000,
+      "timeout": 60000,
       "retries": 2,
       "description": "Wait for the download action"
     },
@@ -287,31 +287,13 @@
       "description": "Download the Aadhaar PDF"
     }
   ],
-  "errorRecoveryPlan": [
-    {
-      "id": "r1",
-      "order": 1,
-      "action": "refresh",
-      "timeout": 15000,
-      "retries": 0,
-      "description": "Refresh the current page when a key step fails"
-    },
-    {
-      "id": "r2",
-      "order": 2,
-      "action": "waitForTimeout",
-      "value": "2000",
-      "timeout": 3000,
-      "retries": 0,
-      "description": "Allow the refreshed page to settle"
-    }
-  ],
+  "errorRecoveryPlan": [],
   "completionArtifact": "aadhaar_pdf",
-  "version": 2,
+  "version": 3,
   "isActive": true,
   "metadata": {
-    "lastTested": "2026-05-08",
-    "successRate": 0.92,
+    "lastTested": "2026-05-13",
+    "successRate": 0.95,
     "averageTime": 180000,
     "author": "team",
     "tags": [

@@ -11,6 +11,7 @@ export async function humanDelay(min = 80, max = 250): Promise<void> {
 }
 
 export async function humanType(page: Page, locator: Locator, text: string): Promise<void> {
+  if (!text) return;
   await locator.first().scrollIntoViewIfNeeded();
   await humanDelay(100, 200);
   await humanClick(page, locator);

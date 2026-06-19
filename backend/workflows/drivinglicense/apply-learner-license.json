@@ -1,0 +1,48 @@
+{
+  "id": "drivinglicense-apply-learner-license",
+  "siteId": "drivinglicense-parivahan",
+  "name": "DrivingLicense — Apply Learner License",
+  "category": "driving",
+  "trigger": "apply learner license drivinglicense",
+  "triggerPhrases": [
+    "apply learner license",
+    "drivinglicense apply learner license"
+  ],
+  "portalType": "government",
+  "entryUrl": "https://parivahan.gov.in/",
+  "pageUrlPatterns": [
+    "parivahan\\\\.gov\\\\.in"
+  ],
+  "requiredInputs": [],
+  "requiredFiles": [],
+  "instructions": "Workflow for apply learner license on DrivingLicense. Record with: npx playwright codegen https://parivahan.gov.in",
+  "starterActionPlan": [
+    {
+      "id": "s1",
+      "order": 1,
+      "action": "navigate",
+      "value": "https://parivahan.gov.in/",
+      "timeout": 30000,
+      "retries": 2,
+      "description": "Navigate to DrivingLicense portal",
+      "humanDelay": true
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "timeout": 180000,
+      "contextMessage": "Please provide the required details to proceed.",
+      "description": "Collect user input"
+    }
+  ],
+  "errorRecoveryPlan": [],
+  "isActive": false,
+  "version": 1,
+  "metadata": {
+    "createdAt": "2026-05-13T17:05:45.251Z",
+    "status": "template",
+    "recordCommand": "npx playwright codegen https://parivahan.gov.in"
+  }
+}

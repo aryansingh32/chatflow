@@ -1,26 +1,58 @@
+import 'dotenv/config';
 import Fastify from 'fastify';
 import { randomUUID } from 'crypto';
-import { enqueueJob, getAllQueueStats } from '../shared/queue/index.js';
+import { enqueueJob, getAllQueueStats, getJobPosition } from '../shared/queue/index.js';
 import { getPgPool, getRedisClient, runMigrations, CacheKeys } from '../shared/db/index.js';
 import { getBrowserPool } from '../execution-service/browser-pool.js';
 import { ProxyManager } from '../execution-service/proxy-manager.js';
 import { getAIPlanner, buildSyntheticSnapshot } from '../ai-service/planner.js';
-import { register as promRegister } from 'prom-client';
+import { register as promRegister, Gauge } from 'prom-client';
 import { Server as SocketIOServer } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { chatOrchestrator } from './chat-orchestrator.js';
+import { ADMIN_OBSERVABILITY_CHANNEL } from './observability.service.js';
 import { memoryService } from './user-memory.service.js';
 import { siteWorkflowService } from './site-workflow.service.js';
 import { fileStorageService } from './file-storage.service.js';
+import { workflowLoader } from '../shared/workflow-loader.js';
+import { createLogger } from '../shared/logger/index.js';
+import { registerAdminRoutes } from './admin-routes.js';
+import { registerObservabilityAdminRoutes, registerClientTelemetryRoutes } from './observability-routes.js';
+import { persistErrorReport } from './observability.service.js';
+import { initNodeTelemetry } from './telemetry.js';
 // ============================================================
 // API SERVICE — Fastify gateway
 // All user requests are converted to async jobs.
 // No direct execution from API layer.
 // ============================================================
+const logger = createLogger('api-service');
+function normalizeAllowedOrigins() {
+    const configured = (process.env.CORS_ORIGIN ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+    const defaults = [
+        'http://localhost:3000',
+        'http://localhost:4173',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:4173',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:8080',
+    ];
+    return [...new Set([...configured, ...defaults])];
+}
+function isAllowedOrigin(origin, allowedOrigins) {
+    if (!origin)
+        return true;
+    return allowedOrigins.includes(origin);
+}
 // ─── Auth Middleware (simple API key) ─────────────────────────
 async function authMiddleware(req, reply) {
     const key = req.headers['x-api-key'];
-    if (!key || key !== process.env.API_KEY) {
+    const expectedKey = process.env.API_KEY ?? 'dev-key-change-in-prod';
+    if (!key || key !== expectedKey) {
         reply.status(401).send({ error: 'Unauthorized' });
     }
 }
@@ -35,14 +67,73 @@ async function buildApp() {
             },
         },
     });
+    const allowedOrigins = normalizeAllowedOrigins();
     // Plugins
     await app.register(import('@fastify/cors'), {
-        origin: process.env.CORS_ORIGIN?.split(',') ?? false,
-        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        origin(origin, callback) {
+            if (isAllowedOrigin(origin, allowedOrigins)) {
+                callback(null, true);
+                return;
+            }
+            callback(new Error(`Origin ${origin} is not allowed by CORS`), false);
+        },
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'x-api-key', 'x-admin-key', 'Authorization'],
+        exposedHeaders: ['Content-Type', 'Content-Disposition'],
     });
     await app.register(import('@fastify/rate-limit'), {
         max: parseInt(process.env.RATE_LIMIT ?? '100'),
         timeWindow: '1 minute',
+    });
+    app.addHook('onRequest', async (req) => {
+        logger.info('request:start', {
+            requestId: req.id,
+            method: req.method,
+            url: req.url,
+            origin: req.headers.origin,
+        });
+    });
+    app.addHook('onResponse', async (req, reply) => {
+        logger.info('request:done', {
+            requestId: req.id,
+            method: req.method,
+            url: req.url,
+            statusCode: reply.statusCode,
+            responseTimeMs: reply.elapsedTime,
+        });
+    });
+    app.setErrorHandler(async (error, req, reply) => {
+        logger.error('request:error', error, {
+            requestId: req.id,
+            method: req.method,
+            url: req.url,
+        });
+        const status = error.statusCode ?? 500;
+        if (status >= 500 || status === 429) {
+            let traceId;
+            try {
+                const { trace } = await import('@opentelemetry/api');
+                traceId = trace.getActiveSpan()?.spanContext().traceId;
+            }
+            catch {
+                traceId = undefined;
+            }
+            await persistErrorReport({
+                message: error.message || 'Internal Server Error',
+                stack: error.stack,
+                requestId: String(req.id),
+                traceId,
+                route: req.url,
+                method: req.method,
+                httpStatus: status,
+                source: 'api',
+                context: {
+                    validation: error.validation,
+                    code: error.code,
+                },
+            });
+        }
+        reply.status(status).send({ error: error.message || 'Internal Server Error' });
     });
     // ── Health ──────────────────────────────────────────────────
     app.get('/health', async () => {
@@ -191,6 +282,23 @@ async function buildApp() {
         await redis.publish(`job:resume:${jobId}`, input);
         return { jobId, resumed: true };
     });
+    app.post('/jobs/:jobId/cancel', { preHandler: authMiddleware }, async (req) => {
+        const { jobId } = req.params;
+        const redis = await getRedisClient();
+        await redis.setEx(CacheKeys.jobCancel(jobId), 86400, '1');
+        await redis.publish(`job:cancel:${jobId}`, 'cancel');
+        const runtime = await redis.get(CacheKeys.jobRuntime(jobId));
+        if (runtime) {
+            const parsed = JSON.parse(runtime);
+            await redis.setEx(CacheKeys.jobRuntime(jobId), 86400, JSON.stringify({
+                ...parsed,
+                status: 'failed',
+                updatedAt: new Date().toISOString(),
+            }));
+        }
+        logger.warn('job:cancel-requested', { jobId });
+        return { jobId, cancelled: true };
+    });
     // ── Proxies ───────────────────────────────────────────────────
     const proxyManager = new ProxyManager();
     app.post('/proxies/import', { preHandler: authMiddleware }, async (req, reply) => {
@@ -320,6 +428,8 @@ async function buildApp() {
         reply
             .header('Content-Type', fileData.file.mimeType)
             .header('Content-Disposition', `attachment; filename="${fileData.file.originalName}"`);
+        // Auto-delete after download (Cost reduction)
+        fileStorageService.deleteFile(fileId, userId).catch(() => { });
         return reply.send(fileData.buffer);
     });
     app.delete('/files/:fileId', { preHandler: authMiddleware }, async (req, reply) => {
@@ -373,21 +483,27 @@ async function buildApp() {
         const body = req.body;
         const workflow = await siteWorkflowService.saveWorkflow({
             siteId: body.siteId ?? existing.siteId,
+            workflowKey: body.workflowKey ?? existing.workflowKey,
+            category: body.category ?? existing.category,
             name: body.name ?? existing.name,
             trigger: body.trigger ?? existing.trigger,
+            triggerPhrases: body.triggerPhrases ?? existing.triggerPhrases,
             portalType: body.portalType ?? existing.portalType,
             siteSection: body.siteSection ?? existing.siteSection,
             entryUrl: body.entryUrl ?? existing.entryUrl,
             pageUrl: body.pageUrl ?? existing.pageUrl,
             pageUrlPattern: body.pageUrlPattern ?? existing.pageUrlPattern,
+            pageUrlPatterns: body.pageUrlPatterns ?? existing.pageUrlPatterns,
             requiredInputs: body.requiredInputs ?? existing.requiredInputs,
             requiredFiles: body.requiredFiles ?? existing.requiredFiles,
             instructions: body.instructions ?? existing.instructions,
             defaultProfileName: body.defaultProfileName ?? existing.defaultProfileName,
             starterActionPlan: body.starterActionPlan ?? existing.starterActionPlan,
+            errorRecoveryPlan: body.errorRecoveryPlan ?? existing.errorRecoveryPlan,
             version: body.version ?? existing.version,
             isActive: body.isActive ?? existing.isActive,
             completionArtifact: body.completionArtifact ?? existing.completionArtifact,
+            metadata: body.metadata ?? existing.metadata,
         });
         return { workflow };
     });
@@ -427,35 +543,79 @@ async function buildApp() {
             actionPlan: decision.actionPlan,
         };
     });
+    // ── Admin Panel Routes ─────────────────────────────────────
+    await registerAdminRoutes(app);
+    await registerObservabilityAdminRoutes(app);
+    await registerClientTelemetryRoutes(app);
     return app;
 }
 // ─── Entry Point ──────────────────────────────────────────────
 async function main() {
     try {
-        // Initialize infrastructure
+        // Initialize infrastructure (OTEL first so migrations/HTTP are traced when enabled)
+        await initNodeTelemetry();
         await runMigrations();
+        if (process.env.WORKFLOW_AUTOLOAD !== 'false') {
+            await workflowLoader.loadAllWorkflows();
+        }
         const pool = getBrowserPool();
         await pool.init();
         const app = await buildApp();
         const port = parseInt(process.env.PORT ?? '3000');
         const host = process.env.HOST ?? '0.0.0.0';
         await app.listen({ port, host });
-        console.log(`\n🚀 API Service ready at http://${host}:${port}`);
+        logger.info('service:ready', { host, port, allowedOrigins: normalizeAllowedOrigins() });
         // ── WebSocket (Socket.io) Setup ─────────────────────────────
         const io = new SocketIOServer(app.server, {
-            cors: { origin: process.env.CORS_ORIGIN?.split(',') ?? '*' }
+            cors: {
+                origin(origin, callback) {
+                    if (isAllowedOrigin(origin, normalizeAllowedOrigins())) {
+                        callback(null, true);
+                        return;
+                    }
+                    callback(new Error(`Origin ${origin} is not allowed by Socket.IO CORS`), false);
+                },
+                methods: ['GET', 'POST'],
+                allowedHeaders: ['x-api-key', 'x-admin-key'],
+            }
         });
         const pubClient = await getRedisClient();
         const subClient = pubClient.duplicate();
         await subClient.connect();
         io.adapter(createAdapter(pubClient, subClient));
+        const adminNs = io.of('/admin');
+        adminNs.use((socket, next) => {
+            const auth = socket.handshake.auth;
+            const headerKey = socket.handshake.headers['x-admin-key'];
+            const key = (typeof headerKey === 'string' ? headerKey : undefined) ?? auth?.adminKey;
+            const expected = process.env.ADMIN_API_KEY ?? process.env.API_KEY ?? 'dev-key-change-in-prod';
+            if (!key || key !== expected) {
+                next(new Error('Unauthorized'));
+                return;
+            }
+            next();
+        });
+        adminNs.on('connection', (socket) => {
+            logger.info('admin-socket:connected', { socketId: socket.id });
+            socket.emit('ready', { channel: 'observability' });
+        });
+        const adminObsSub = pubClient.duplicate();
+        await adminObsSub.connect();
+        await adminObsSub.subscribe(ADMIN_OBSERVABILITY_CHANNEL, (msg) => {
+            try {
+                adminNs.emit('feed', JSON.parse(msg));
+            }
+            catch {
+                adminNs.emit('feed', { raw: msg });
+            }
+        });
         // Listen for events from ExecutionService (Pause for input)
         const systemSub = pubClient.duplicate();
         await systemSub.connect();
         await systemSub.subscribe('chat:pause', async (message) => {
             try {
                 const payload = JSON.parse(message);
-                const { jobId, stepId, type, contextMessage } = payload;
+                const { jobId, stepId, type, contextMessage, data } = payload;
                 const redis = await getRedisClient();
                 const runtime = payload.userId && payload.sessionId
                     ? payload
@@ -469,9 +629,18 @@ async function main() {
                     lastInputType: type,
                     updatedAt: new Date().toISOString(),
                 }));
-                await chatOrchestrator.handleJobPauseRequest(runtime.userId, runtime.sessionId, jobId, stepId, type, contextMessage, (replyText) => io.to(`session:${runtime.sessionId}`).emit('chat:receive', replyText));
+                io.to(`session:${runtime.sessionId}`).emit('chat:pause', {
+                    jobId,
+                    stepId,
+                    type,
+                    contextMessage,
+                    data
+                });
+                await chatOrchestrator.handleJobPauseRequest(runtime.userId, runtime.sessionId, jobId, stepId, type, contextMessage, (replyText) => { });
             }
-            catch (e) { }
+            catch (e) {
+                logger.error('socket:chat-pause-handler-failed', e);
+            }
         });
         await systemSub.subscribe('chat:file', async (message) => {
             try {
@@ -484,6 +653,7 @@ async function main() {
                     return;
                 io.to(`session:${runtime.sessionId}`).emit('chat:file', {
                     jobId: payload.jobId,
+                    fileId: payload.fileId,
                     category: payload.category,
                     originalName: payload.originalName,
                     sourceFilename: payload.sourceFilename,
@@ -491,16 +661,55 @@ async function main() {
                 });
                 io.to(`session:${runtime.sessionId}`).emit('chat:receive', `Saved ${payload.category} file "${payload.originalName}" to your account files.`);
             }
-            catch (e) { }
+            catch (e) {
+                logger.error('socket:chat-file-handler-failed', e);
+            }
         });
+        await systemSub.subscribe('chat:message', async (message) => {
+            try {
+                const payload = JSON.parse(message);
+                if (payload.sessionId && payload.message) {
+                    io.to(`session:${payload.sessionId}`).emit('chat:receive', payload.message);
+                }
+            }
+            catch (e) {
+                logger.error('socket:chat-message-handler-failed', e);
+            }
+        });
+        // Track socket → active jobs for cleanup on disconnect
+        const socketJobMap = new Map();
+        const systemMemoryGauge = new Gauge({
+            name: 'system_memory_usage_bytes',
+            help: 'Current system memory usage',
+        });
+        const activeSessionsGauge = new Gauge({
+            name: 'system_active_sessions_total',
+            help: 'Total number of active user sessions via WebSocket',
+        });
+        // Periodically update metrics
+        setInterval(() => {
+            systemMemoryGauge.set(process.memoryUsage().rss);
+            activeSessionsGauge.set(socketJobMap.size);
+        }, 10000);
         // Handle incoming connections
         io.on('connection', (socket) => {
-            console.log(`[Socket] User connected: ${socket.id}`);
+            logger.info('socket:connected', { socketId: socket.id });
             socket.on('join', (data) => {
+                logger.info('socket:join', {
+                    socketId: socket.id,
+                    userId: data.userId,
+                    sessionId: data.sessionId,
+                    activeJobId: data.activeJobId,
+                });
                 socket.join(`user:${data.userId}`);
                 socket.join(`session:${data.sessionId}`);
+                // Track this socket's user/session
+                if (!socketJobMap.has(socket.id)) {
+                    socketJobMap.set(socket.id, { userId: data.userId, sessionId: data.sessionId, jobIds: new Set() });
+                }
                 if (data.activeJobId) {
                     socket.join(`job:${data.activeJobId}`);
+                    socketJobMap.get(socket.id).jobIds.add(data.activeJobId);
                     // Subscribe to live stream for this job
                     const streamSub = pubClient.duplicate();
                     streamSub.connect().then(() => {
@@ -512,15 +721,57 @@ async function main() {
                             streamSub.quit();
                         });
                     });
+                    // Queue Position polling
+                    let queueInterval;
+                    const pollQueue = async () => {
+                        try {
+                            const pos = await getJobPosition('execute', data.activeJobId);
+                            if (pos !== null) {
+                                socket.emit('job:queue-position', { jobId: data.activeJobId, position: pos });
+                            }
+                            else {
+                                clearInterval(queueInterval);
+                            }
+                        }
+                        catch (err) { }
+                    };
+                    queueInterval = setInterval(pollQueue, 3000);
+                    pollQueue();
+                    socket.on('disconnect', () => clearInterval(queueInterval));
                 }
             });
             socket.on('chat:send', async (data) => {
-                await chatOrchestrator.handleMessage(data.userId, data.sessionId, data.message, (reply) => socket.emit('chat:receive', reply));
+                logger.info('socket:chat-send', {
+                    socketId: socket.id,
+                    userId: data.userId,
+                    sessionId: data.sessionId,
+                    messagePreview: data.message.slice(0, 120),
+                });
+                await chatOrchestrator.handleMessage(data.userId, data.sessionId, data.message, (reply) => socket.emit('chat:receive', reply), (job) => {
+                    // Track the newly started job for this socket
+                    const tracked = socketJobMap.get(socket.id);
+                    if (tracked)
+                        tracked.jobIds.add(job.jobId);
+                    io.to(`session:${data.sessionId}`).emit('job:started', job);
+                });
+            });
+            socket.on('disconnect', async (reason) => {
+                logger.info('socket:disconnected', { socketId: socket.id, reason });
+                const tracked = socketJobMap.get(socket.id);
+                if (tracked && tracked.jobIds.size > 0) {
+                    for (const jobId of tracked.jobIds) {
+                        logger.info('job:socket-detached-keeping-running', { jobId, socketId: socket.id, reason });
+                    }
+                }
+                socketJobMap.delete(socket.id);
+            });
+            socket.on('error', (error) => {
+                logger.error('socket:error', error, { socketId: socket.id });
             });
         });
         // Graceful shutdown
         const shutdown = async (signal) => {
-            console.log(`\n[API] Received ${signal}, shutting down...`);
+            logger.warn('service:shutdown', { signal });
             io.close();
             await app.close();
             await pool.shutdown();
@@ -530,9 +781,15 @@ async function main() {
         process.on('SIGINT', () => shutdown('SIGINT'));
     }
     catch (err) {
-        console.error('[API] Fatal startup error:', err);
+        logger.error('service:fatal-startup-error', err);
         process.exit(1);
     }
 }
+process.on('uncaughtException', (error) => {
+    logger.error('process:uncaught-exception', error);
+});
+process.on('unhandledRejection', (reason) => {
+    logger.error('process:unhandled-rejection', reason);
+});
 main();
 //# sourceMappingURL=server.js.map

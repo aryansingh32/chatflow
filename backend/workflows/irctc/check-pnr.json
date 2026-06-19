@@ -1,0 +1,48 @@
+{
+  "id": "irctc-check-pnr",
+  "siteId": "irctc-www",
+  "name": "IRCTC — Check Pnr",
+  "category": "railway",
+  "trigger": "check pnr irctc",
+  "triggerPhrases": [
+    "check pnr",
+    "irctc check pnr"
+  ],
+  "portalType": "general",
+  "entryUrl": "https://www.irctc.co.in/",
+  "pageUrlPatterns": [
+    "www\\\\.irctc\\\\.co\\\\.in"
+  ],
+  "requiredInputs": [],
+  "requiredFiles": [],
+  "instructions": "Workflow for check pnr on IRCTC. Record with: npx playwright codegen https://www.irctc.co.in",
+  "starterActionPlan": [
+    {
+      "id": "s1",
+      "order": 1,
+      "action": "navigate",
+      "value": "https://www.irctc.co.in/",
+      "timeout": 30000,
+      "retries": 2,
+      "description": "Navigate to IRCTC portal",
+      "humanDelay": true
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "action": "pauseForUserInput",
+      "expectedInput": "text",
+      "timeout": 180000,
+      "contextMessage": "Please provide the required details to proceed.",
+      "description": "Collect user input"
+    }
+  ],
+  "errorRecoveryPlan": [],
+  "isActive": false,
+  "version": 1,
+  "metadata": {
+    "createdAt": "2026-05-13T17:05:45.252Z",
+    "status": "template",
+    "recordCommand": "npx playwright codegen https://www.irctc.co.in"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "IRCTC",
+  "domain": "www.irctc.co.in",
+  "category": "railway",
+  "portalType": "general",
+  "entryUrl": "https://www.irctc.co.in/",
+  "description": "All workflows for IRCTC",
+  "workflows": [
+    "irctc-book-ticket",
+    "irctc-check-pnr",
+    "irctc-cancel-ticket",
+    "irctc-check-availability"
+  ],
+  "recordCommand": "npx playwright codegen https://www.irctc.co.in",
+  "createdAt": "2026-05-13T17:05:45.252Z"
+}

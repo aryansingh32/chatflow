@@ -1,0 +1,16 @@
+{
+  "name": "RationCard",
+  "domain": "nfsa.gov.in",
+  "category": "ration",
+  "portalType": "government",
+  "entryUrl": "https://nfsa.gov.in/",
+  "description": "All workflows for RationCard",
+  "workflows": [
+    "rationcard-apply-ration-card",
+    "rationcard-check-status",
+    "rationcard-update-details",
+    "rationcard-download-card"
+  ],
+  "recordCommand": "npx playwright codegen https://nfsa.gov.in",
+  "createdAt": "2026-05-13T17:05:45.250Z"
+}

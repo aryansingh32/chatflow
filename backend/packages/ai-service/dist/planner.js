@@ -1,24 +1,23 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { createHash } from 'crypto';
 import { getPgPool, cacheGet, cacheSet, CacheKeys } from '../shared/db/index.js';
+import { getLLMProviderConfig, getOpenAICompatibleClient, getReasoningRequestBody } from '../shared/llm/index.js';
 // ============================================================
 // AI SERVICE
-// Uses Claude for:
+// Uses an OpenAI-compatible LLM provider for:
 //   1. Natural language → action plan conversion
 //   2. Selector fallback recovery
 //   3. Error recovery suggestions
 //   4. Flow caching (AI is fallback, not primary path)
 // ============================================================
-const MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-20250514';
-let anthropicClient = null;
-function getAnthropicClient() {
-    if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error('ANTHROPIC_API_KEY is required for AI fallback planning');
+function getTextResponse(content) {
+    if (typeof content === 'string')
+        return content;
+    if (Array.isArray(content)) {
+        return content
+            .map((part) => (typeof part === 'string' ? part : typeof part?.text === 'string' ? part.text : ''))
+            .join('');
     }
-    if (!anthropicClient) {
-        anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    }
-    return anthropicClient;
+    return '';
 }
 // ─── Flow Cache ──────────────────────────────────────────────
 function hashTask(task) {
@@ -85,18 +84,26 @@ async function markFlowFailure(siteId, task) {
 async function getSiteWorkflowContext(siteId) {
     const pool = getPgPool();
     const { rows } = await pool.query(`SELECT
+       workflow_key,
+       category,
        name,
        trigger,
+       trigger_phrases,
        portal_type,
        site_section,
+       entry_url,
        page_url,
        page_url_pattern,
+       page_url_patterns,
        required_inputs,
        instructions,
        default_profile_name,
-       starter_action_plan
+       starter_action_plan,
+       error_recovery_plan,
+       metadata
      FROM site_workflows
      WHERE site_id = $1
+       AND is_active = true
      ORDER BY updated_at DESC, name ASC
      LIMIT 10`, [siteId]);
     if (!rows.length)
@@ -104,15 +111,22 @@ async function getSiteWorkflowContext(siteId) {
     return rows.map((row, index) => JSON.stringify({
         priority: index + 1,
         name: row.name,
+        workflowKey: row.workflow_key,
+        category: row.category,
         trigger: row.trigger,
+        triggerPhrases: row.trigger_phrases ?? [],
         portalType: row.portal_type,
         siteSection: row.site_section,
+        entryUrl: row.entry_url,
         pageUrl: row.page_url,
         pageUrlPattern: row.page_url_pattern,
+        pageUrlPatterns: row.page_url_patterns ?? [],
         requiredInputs: row.required_inputs ?? [],
         instructions: row.instructions,
         defaultProfileName: row.default_profile_name,
         starterActionPlan: row.starter_action_plan ?? [],
+        errorRecoveryPlan: row.error_recovery_plan ?? [],
+        metadata: row.metadata ?? {},
     })).join('\n');
 }
 function normalizeText(text) {
@@ -124,12 +138,21 @@ function scoreWorkflowMatch(workflow, task, pageUrl) {
     const trigger = normalizeText(workflow.trigger);
     const name = normalizeText(workflow.name);
     const section = normalizeText(workflow.siteSection ?? '');
+    const category = normalizeText(workflow.category ?? '');
+    const triggerPhrases = workflow.triggerPhrases ?? [];
     if (trigger && normalizedTask.includes(trigger))
         score += 10;
     if (name && normalizedTask.includes(name))
         score += 6;
     if (section && normalizedTask.includes(section))
         score += 4;
+    if (category && normalizedTask.includes(category))
+        score += 3;
+    for (const phrase of triggerPhrases) {
+        const normalizedPhrase = normalizeText(phrase);
+        if (normalizedPhrase && normalizedTask.includes(normalizedPhrase))
+            score += 8;
+    }
     if (workflow.requiredInputs?.length) {
         for (const input of workflow.requiredInputs) {
             if (normalizedTask.includes(input.replace('_', ' ')))
@@ -148,6 +171,16 @@ function scoreWorkflowMatch(workflow, task, pageUrl) {
                 score += 4;
         }
     }
+    for (const pattern of workflow.pageUrlPatterns ?? []) {
+        try {
+            if (pageUrl && new RegExp(pattern).test(pageUrl))
+                score += 8;
+        }
+        catch {
+            if (pageUrl && pageUrl.includes(pattern))
+                score += 4;
+        }
+    }
     if (workflow.starterActionPlan?.length)
         score += 5;
     return score;
@@ -156,21 +189,33 @@ async function getStructuredWorkflows(siteId) {
     const pool = getPgPool();
     const { rows } = await pool.query(`SELECT
        id,
+       workflow_key as "workflowKey",
        site_id as "siteId",
+       category,
        name,
        trigger,
+       trigger_phrases as "triggerPhrases",
        portal_type as "portalType",
        site_section as "siteSection",
+       entry_url as "entryUrl",
        page_url as "pageUrl",
        page_url_pattern as "pageUrlPattern",
+       page_url_patterns as "pageUrlPatterns",
        required_inputs as "requiredInputs",
+       required_files as "requiredFiles",
        instructions,
        default_profile_name as "defaultProfileName",
        starter_action_plan as "starterActionPlan",
+       error_recovery_plan as "errorRecoveryPlan",
+       version,
+       is_active as "isActive",
+       completion_artifact as "completionArtifact",
+       metadata,
        created_at as "createdAt",
        updated_at as "updatedAt"
      FROM site_workflows
      WHERE site_id = $1
+       AND is_active = true
      ORDER BY updated_at DESC, name ASC`, [siteId]);
     return rows;
 }
@@ -212,12 +257,12 @@ Given a website's interactive elements and a user task, generate a precise JSON 
 RULES:
 1. Return ONLY valid JSON — no markdown, no explanation
 2. Each step must have a unique id (use short random strings like "s1", "s2")
-3. action must be one of: navigate, click, fill, select, upload, download, wait, scroll, screenshot, extract, pauseForUserInput, payment
+3. action must be one of: navigate, click, fill, select, check, uncheck, upload, download, waitForSelector, waitForNavigation, waitForTimeout, scroll, mouseMove, humanType, screenshot, extractData, pauseForUserInput, runSubWorkflow, conditional, customJS, refresh, payment
 4. timeout is in milliseconds (default 10000)
 5. retries should be 2 for critical steps, 1 for others
 6. For fill actions, value is the text to type
 7. For navigate, value is the full URL
-8. target.value is a CSS selector, target.type is "css"
+8. target.value is a selector or lookup value, and target.type should be one of css, text, role, testid, xpath, or url
 9. description must be human-readable (used as label for AI selector fallback)
 10. Keep plans minimal — only necessary steps
 11. If login, signup, OTP, CAPTCHA, payment, email, mobile, or password input is required and the task does not contain it, insert pauseForUserInput before the dependent step.
@@ -258,6 +303,7 @@ export class AIPlanner {
                 actionPlan: matchedWorkflow.workflow.starterActionPlan,
                 estimatedDuration: matchedWorkflow.workflow.starterActionPlan.length * 3000,
                 warnings: [],
+                fallbackPlan: matchedWorkflow.workflow.errorRecoveryPlan,
                 source: 'structured-workflow',
                 matchedWorkflowId: matchedWorkflow.workflow.id,
                 matchedWorkflowName: matchedWorkflow.workflow.name,
@@ -280,21 +326,24 @@ export class AIPlanner {
         console.log(`[AI] Planning task: "${task.slice(0, 60)}"`);
         const domContext = serializeDOM(snapshot, elements);
         const workflowContext = await getSiteWorkflowContext(siteId);
-        const message = await getAnthropicClient().messages.create({
-            model: MODEL,
-            max_tokens: 2048,
-            system: SYSTEM_PROMPT,
+        const client = getOpenAICompatibleClient();
+        const { plannerModel } = getLLMProviderConfig();
+        const reasoningBody = getReasoningRequestBody();
+        const requestBody = {
+            model: plannerModel,
             messages: [
+                { role: 'system', content: SYSTEM_PROMPT },
                 {
                     role: 'user',
                     content: `TASK: ${task}\n\nSITE WORKFLOW INSTRUCTIONS:\n${workflowContext}\n\nPAGE STATE:\n${domContext}`,
                 },
             ],
-        });
-        const raw = message.content
-            .filter((b) => b.type === 'text')
-            .map((b) => b.text)
-            .join('');
+        };
+        if (reasoningBody) {
+            requestBody.extra_body = reasoningBody;
+        }
+        const response = await client.chat.completions.create(requestBody);
+        const raw = getTextResponse(response.choices[0]?.message?.content);
         let parsed;
         try {
             // Strip potential markdown fences
@@ -324,9 +373,11 @@ export class AIPlanner {
     // ─── Error Recovery ───────────────────────────────────────────
     async recoverFromFailure(originalTask, failedStep, errorMessage, currentDOM) {
         console.log(`[AI] Attempting recovery for failed step: ${failedStep.description}`);
-        const message = await getAnthropicClient().messages.create({
-            model: MODEL,
-            max_tokens: 1024,
+        const client = getOpenAICompatibleClient();
+        const { recoveryModel } = getLLMProviderConfig();
+        const reasoningBody = getReasoningRequestBody();
+        const requestBody = {
+            model: recoveryModel,
             messages: [
                 {
                     role: 'user',
@@ -341,8 +392,12 @@ Return a JSON array of recovery ActionStep objects, or null if unrecoverable.
 Format: { "recoverable": true/false, "steps": [...] }`,
                 },
             ],
-        });
-        const raw = message.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+        };
+        if (reasoningBody) {
+            requestBody.extra_body = reasoningBody;
+        }
+        const response = await client.chat.completions.create(requestBody);
+        const raw = getTextResponse(response.choices[0]?.message?.content);
         try {
             const clean = raw.replace(/```json\n?|\n?```/g, '').trim();
             const data = JSON.parse(clean);
@@ -355,9 +410,11 @@ Format: { "recoverable": true/false, "steps": [...] }`,
     // ─── AI Selector Recovery ─────────────────────────────────────
     // Used as stage-4 fallback in SelectorEngine
     async resolveSelector(page, label, elementType, bodyContext) {
-        const message = await getAnthropicClient().messages.create({
-            model: MODEL,
-            max_tokens: 256,
+        const client = getOpenAICompatibleClient();
+        const { selectorModel } = getLLMProviderConfig();
+        const reasoningBody = getReasoningRequestBody();
+        const requestBody = {
+            model: selectorModel,
             messages: [
                 {
                     role: 'user',
@@ -371,8 +428,12 @@ ${(bodyContext ?? '').slice(0, 1500)}
 Return ONLY a CSS selector string, no explanation. If impossible, return null.`,
                 },
             ],
-        });
-        const raw = message.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+        };
+        if (reasoningBody) {
+            requestBody.extra_body = reasoningBody;
+        }
+        const response = await client.chat.completions.create(requestBody);
+        const raw = getTextResponse(response.choices[0]?.message?.content).trim();
         if (!raw || raw === 'null' || raw.length > 200)
             return null;
         // Validate the selector works

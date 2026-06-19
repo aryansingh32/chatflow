@@ -1,0 +1,18 @@
+{
+  "name": "PAN",
+  "domain": "eportal.incometax.gov.in",
+  "category": "pan",
+  "portalType": "government",
+  "entryUrl": "https://eportal.incometax.gov.in/",
+  "description": "All workflows for PAN",
+  "workflows": [
+    "pan-download-pan",
+    "pan-apply-pan",
+    "pan-link-aadhaar-pan",
+    "pan-correction-pan",
+    "pan-check-pan-status",
+    "pan-verify-pan"
+  ],
+  "recordCommand": "npx playwright codegen https://eportal.incometax.gov.in",
+  "createdAt": "2026-05-13T17:05:45.247Z"
+}
